@@ -1,15 +1,18 @@
+# import modules
 import os
 import json
-from pathlib import Path
+import getpass
 import pyspark
+from pathlib import Path
 
-from processing import database, xml_pipeline
+from processing import xml_pipeline
+from io import database
 
+# set global vars
 ROOT_DIR = Path.cwd()
-
+USER = getpass.getuser()
 os.environ.get("MONGODB_USER")
 os.environ.get("MONGODB_PASS")
-
 
 def read_config(fin):
     """
@@ -19,46 +22,46 @@ def read_config(fin):
         config = json.load(f)
     return config
 
-
-def load_xml(spark, fin ='250949924.xml'):
-    source_path = "/scratch/work/public/proquest/proquest_hnp/BostonGlobe/BG_20151210212722_00001.zip"
-    with ZipFile(source_path, "r") as fzip:
-        print(fzip.infolist())
-        fzip.extract(fin , 'zip_tmp')
-    df = spark.read \
-        .option('rootTag', 'Record')\
-        .option('rowTag', 'Record')\
-        .format("xml").load(f"zip_tmp/{fin}.xml")
-    return df
-
-
 def create_arg_parser():
+    """Create argument parser to set application run parameters.
+
+    Args:
+        None.
+
+    Returns:
+        argument_parser (argparse.ArgumentParser): Argument parser object to pass to run function.
+    """
     argument_parser = ArgumentParser(description= "Youtube for Newspapers Search")
-    argument_parser.add_argument(
-        "--mode",
-        type = str,
-        choices = ["process", "query"],
-        default = "process",
-        help = "Process or query the search engine"
-    )
     argument_parser.add_argument(
         "--config_path",
         type = str,
-        default = ROOT_DIR / "config.json"
+        default = f"{ROOT_DIR}/config.json"
+    )
+    argument_parser.add_argument(
+        "--data_raw",
+        type = str,
+        default = "/scratch/work/public/proquest/proquest_hnp/BostonGlobe/BG_20151210212722_00001.zip"
+    )
+    argument_parser.add_argument(
+        "--cache",
+        action="store_true",
+        help = "If true, cache directory names loaded into mongodb."
+    )
+    argument_parser.add_argument(
+        "--cache_dir",
+        default = f"/scratch/{USER}/youtube-for-newspapers-cache",
+        help = "Location to cache processed data for youtube for newspapers"
+    )
+    argument_parser.add_argument(
+        "--test",
+        action="store_true",
+        help = "If true, test processing pipeline on the first zip file in the `data_raw` dir." 
     )
     return argument_parser
-    
-def setup_spark():
-    # setup Spark config
-    conf = pyspark.SparkConf()
-    conf.set('spark.jars.packages', 
-             "org.mongodb.spark:mongo-spark-connector_2.12:3.0.1,com.databricks:spark-xml_2.12:0.18.0,com.johnsnowlabs.nlp:spark-nlp_2.12:5.3.3")
-    conf.set('spark.driver.memory','8g')
-    sc = pyspark.SparkContext(conf=conf)
-    spark = pyspark.SQLContext.getOrCreate(sc)
-    return spark
-    
+
 def run(args):
+    """
+    """
     # load configs
     config = read_config(args.config_path)
     database_config = config["nosql_database"]
@@ -68,19 +71,10 @@ def run(args):
     db = database.NoSQLDatabase.from_config(database_config)
     db.set_index()
     
-    #load and process data
-    spark = setup_spark()
-    data = load_xml(spark)
+    # run processing batch job
+    pipe = xml_pipeline.XmlPipeline.from_config(processing_config, args)
+    pipe.batch_upload(db=db)
     
-    # process keywords
-    yake_pipeline = xml_pipeline.YakeKeywordPipeline.from_config(processing_config["keywords"])
-    yake_pipeline.setup_pipeline()
-    data_w_keywords = yake_pipeline.execute_pipeline(data)
-    
-    # process embeddings
-    doc2vec_pipeline = xml_pipeline.Doc2VecEmbeddingsPipeline.from_config(processing_config["doc2vec"])
-    doc2vec_pipeline.setup_pipeline()
-    data_w_embeddings = doc2vec_pipeline.execute_pipeline(data_w_keywords)
     
 def main():
     args = create_arg_parser().parse_args()

@@ -1,105 +1,170 @@
+import uuid
+import shututil
+import logging
+from functools import reduce
+
 import pyspark
-from pyspark.ml import Pipeline
+from pyspark.sql import DataFrame
 
-from sparknlp.annotator import StopWordsCleaner, DocumentAssembler, SentenceDetector, EmbeddingsFinisher
-from sparknlp.annotator import Doc2VecModel, YakeKeywordExtraction
+from nlp_pipeline import KeywordPipeline, EmbeddingsPipeline
+from database
 
-class YakeKeywordPipeline(Pipeline):
+class XmlPipeline:
     """
-    A pipeline for extracting keywords using YAKE.
-
-    Example Usage:
-        pipeline = YakePipeline()
-        processed_df = pipeline.fit(df).transfrom(df)
     """
-    def __init__(self, stopwords=None, document_assembler=None, sentence_detector=None tokenizer=None, keywords=None):
-        super(KeywordPipeline, self).__init__()
-        self.stopwords = stopwords
-        self.document_assembler = document_assembler
-        self.sentence_detector = sentence_detector
-        self.tokenizer = tokenizer
-        self.keywords = keywords
-    
-    @classmethod
-    def from_config(cls, config):
-        """
-        Create yake keyword extraction pipeline initialized from a configuration file
-        """
-        stopwords = StopWordsCleaner().getStopWords()
-        document_assembler = DocumentAssembler() \
-            .setInputCol("text")
-            .setOutputCol("keyword_document")
-        sentence_detector = SentenceDetector() \
-            .setInputCols(["keyword_document"]) \
-            .setOutputCol("keyword_sentence")
-        tokenizer = Tokenizer() \
-            .setInputCols(["keyword_sentence"]) \
-            .setOutputCol("keyword_token") \
-            .setContextChars(config["context_chars"])
-        keywords = YakeKeywordExtraction() \
-            .setInputCols(["keyword_token"]) \
-            .setOutputCol("keywords") \
-            .setMinNGrams(config["min_ngrams"]) \
-            .setMaxNGrams(config["max_ngrams"]) \
-            .setNKeywords(config["num_keywords"]) \
-            .setStopWords(stopwords)
-        return cls(stopwords=stopwords, document_assembler=document_assembler, sentence_detector=sentence_detector, tokenizer=tokenizer, keywords=keywords)
-    
-    def setup_pipeline(self):
+
+    def __init__(self, batchsize = None, doc2vec_config=None, keyword_config=None, data_dir=None, cache=None, cache_dir=None, test=None):
+        # init attrs
+        self.batchsize = batchsize
+        self.doc2vec_config = doc2vec_config
+        self.keyword_config = keyword_config
+        self.data_dir = data_dir
+        self.cache = cache
+        self.cache_dir = cache_dir
+        self.test = test
+        self.zip2batch = {}
+
+        # processing attrs
+        self.spark = None
+        self.ddfs_batches = []
+
+    def from_config(cls, config, args):
         """
         """
-        self.setStages([self.document, self.sentence_detector, self.token, self.keywords])
-    
-    def execute_pipeline(self, data):
-        """
-        """
-        res = self.fit(data)
-        return res
+        # config parameters
+        batchsize = config["batchsize"]
+        keyword_config = config["keywords"]
+        doc2vec_config = config["doc2vec"]
+
+        # args parameters
+        data_dir = args.data_dir
+        cache = args.cache
+        cache_dir = args.cache_dir
+        test = args.test
         
-class Doc2VecEmbeddingsPipeline(Pipeline):
+        return cls(batchsize = batchsize, doc2vec_config=doc2vec_config, keyword_config=keyword_config, data_dir=data_dir, cache = cache, cache_dir = cache_dir, test = test)
     
-    def __init__(self, stopwords=None, document_assembler=None, sentence_detector=None tokenizer=None, keywords=None):
-        super(EmbeddingsPipeline, self).__init__()
-        self.stopwords = stopwords
-        self.document_assembler = document_assembler
-        self.sentence_detector = sentence_detector
-        self.tokenizer = tokenizer
-        self.keywords = keywords
+    def setup_spark():
+        """Setup Spark context by setting config and creating context.
     
-    @classmethod
-    def from_config(cls, config):
+        Args:
+            None.
+    
+        Returns:
+    
         """
-        Create yake keyword extraction pipeline initialized from a configuration file
+        # setup Spark config
+        conf = pyspark.SparkConf()
+        conf.set('spark.jars.packages', 
+                 "org.mongodb.spark:mongo-spark-connector_2.12:3.0.1,com.databricks:spark-xml_2.12:0.18.0,com.johnsnowlabs.nlp:spark-nlp_2.12:5.3.3")
+        conf.set('spark.driver.memory','8g')
+
+        # create Spark context
+        sc = pyspark.SparkContext(conf=conf)
+        self.spark = pyspark.SQLContext.getOrCreate(sc)
+
+    def load_xml(zip_file): #fin ='250949924.xml'):
+        """Load xml into spark dataframe.
         """
-        pretrained_config = config["pretrained_model"]
-        document_assembler = DocumentAssembler() \
-            .setInputCol("text") \
-            .setOutputCol("embedding_document")
-        tokenizer = Tokenizer() \
-            .setInputCols("embedding_document") \
-            .setOutputCol("embedding_token")
-        embeddings = Doc2VecModel.pretrained(
-            name = pretrained_config["name"],
-            lang = pretrained_config["name"]
-        ) \
-            .setInputCols(["embedding_token"]) \
-            .setOutputCol("embeddings")
-        embeddings_finisher = EmbeddingsFinisher() \
-            .setInputCols(["embeddings"]) \
-            .setOutputCols("finished_embeddings") \
-            .setOutputAsVector(config["vector_output"]) \
-            .setVectorSize(config["vector_size"])
-    
-    def setup_pipeline(self):
-        self.setStages([
-            self.document_assembler,
-            self.tokenizer,
-            self.embeddings,
-            self.embeddings_finisher
-        ])
+        # setup extraction
+        zip_dir = zip_file.parent
+        fin = zip_file.parts[-1]
+        tmp_dir = self.cache_dir / "tmp"
+        tmp_dir.mkdir(exist_ok=True, parents=True)
         
-    def execute_pipeline(self, data)
+        # extract zip file
+        with ZipFile(zip_dir, "r") as fzip:
+            print(fzip.infolist())
+            fzip.extract(fin , tmp_dir)
+
+        # read zip file into distributed dataframe
+        ddf = self.spark.read \
+            .option('rootTag', 'Record')\
+            .option('rowTag', 'Record')\
+            .format("xml").load(f"tmp/{fin}.xml")
+
+        # cleanup
+        shututil.rmtree(tmp_dir)
+        
+        return ddf
+
+    def setup_batch_jobs():
+
+        # setup batches
+        list_of_zips = os.listdir(self.data_dir)
+        batches = [list_of_zips[i: i + self.batchsize] for targe range(0, len(list_of_zips), self.batchsize)]
+
+        # setup test support
+        if self.test:
+            batches = [batches[0]]
+
+        # setup logging
+        if self.cache:
+            logging.basicConfig(
+                filename= self.cache_dir / "logs" / "batch.log",
+                level=logging.INFO,
+                format="%(asctime)s %(levelname)s %(message)s",
+                datefmt = "%Y-%m-%d %H:%M:%S"
+            )
+        return batches
+
+                                         
+    def run_batch(self, batch):
+        """Run batch job for xml pipeline.
+        
+        """
+        
+        ddfs = []
+        for zip_file in batch:
+            # extract zip file and load into distributed data frame
+            data = load_xml(zip_file)
+            
+            # process keywords
+            yake_pipeline = KeywordPipeline.from_config(self.keywords_config)
+            yake_pipeline.setup_pipeline()
+            data_w_keywords = yake_pipeline.execute_pipeline(data)
+            
+            # process embeddings
+            doc2vec_pipeline = EmbeddingsPipeline.from_config(self.doc2vec_config)
+            doc2vec_pipeline.setup_pipeline()
+            data_w_embeddings = doc2vec_pipeline.execute_pipeline(data_w_keywords)
+
+            # append data
+            ddfs.append(data_with_embeddings)
+
+        # reduce processed data into single dataframe for batch
+        ddf_batch = reduce(DataFrame.unionAll, ddfs)
+        return ddf_batch
+
+    
+    def cache_batch(batch, batch_data):
+        """Cache batch job.
+        
+        """
+        # log processed data
+        batch_id = uuid.uuid1()
+        
+        for zip_file in batch:
+            self.zip2batch[zip_file] = batch_id
+            logging.info(f"{batch_id} {zip_file}")
+
+        # cache data
+        batch_data.write.parquet(self.cache_dir / "data" / f"{batch_id}.parquet")
+
+    def batch_upload(db):
         """
         """
-        res = self.fit(data).transform(data)
-        return res
+        batches = self.setup_batch_jobs()
+        
+        # create batch jobs
+        for batch in batches:
+            batch_data = self.run_batch(batch)
+            self.ddfs_batches.append(batch_data)
+            
+            if self.cache:
+                self.cache_batch(batch, batch_data)
+            
+            payload = self.create_payload(batch_data)
+            db.upload(payload)
+
+        
