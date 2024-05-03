@@ -1,3 +1,4 @@
+import logging
 import os        
 from zipfile import ZipFile
 from pymongo import MongoClient
@@ -27,13 +28,15 @@ class NoSQLDatabase:
     def set_index(self):
         self.collection.create_search_index(self.index)
 
-    def upload(self, payload):
+    def upload(self, batch, payload):
         upload_result = self.collection.insert_many(payload)
         
         if upload_result.modified_count == len(payload):
             status = "SUCCESS"
         else:
             status = "FAIL"
+
+        logging.info(f"{batch} {status}")
 
     def query_keyword(self, query, pipeline):
         processed_query = pipeline.execute_light_pipeline(query)

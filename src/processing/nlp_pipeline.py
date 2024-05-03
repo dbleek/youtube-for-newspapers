@@ -1,5 +1,10 @@
 import pyspark
 from pyspark.ml import Pipeline
+#import getpass
+#import sys, glob, os
+#USER = getpass.getuser()
+#sys.path.insert(0,f"/scratch/{USER}/bdenv/bin/python")
+#sys.path.extend(glob.glob(os.path.join(os.path.expanduser("~"), ".ivy2/jars/*.jar")))
 
 from sparknlp.base import LightPipeline
 from sparknlp.annotator import StopWordsCleaner, DocumentAssembler, SentenceDetector, EmbeddingsFinisher
@@ -13,7 +18,7 @@ class KeywordPipeline(Pipeline):
         pipeline = YakePipeline()
         processed_df = pipeline.fit(df).transfrom(df)
     """
-    def __init__(self, stopwords=None, document_assembler=None, sentence_detector=None tokenizer=None, keywords=None):
+    def __init__(self, stopwords=None, document_assembler=None, sentence_detector=None, tokenizer=None, keywords=None):
         super(KeywordPipeline, self).__init__()
         self.stopwords = stopwords
         self.document_assembler = document_assembler
@@ -28,7 +33,7 @@ class KeywordPipeline(Pipeline):
         """
         stopwords = StopWordsCleaner().getStopWords()
         document_assembler = DocumentAssembler() \
-            .setInputCol("text")
+            .setInputCol("text") \
             .setOutputCol("keyword_document")
         sentence_detector = SentenceDetector() \
             .setInputCols(["keyword_document"]) \
@@ -47,23 +52,43 @@ class KeywordPipeline(Pipeline):
         return cls(stopwords=stopwords, document_assembler=document_assembler, sentence_detector=sentence_detector, tokenizer=tokenizer, keywords=keywords)
     
     def setup_pipeline(self):
-        """
+        """Stage spark nlp pipeline.
+
+        Args:
+            None.
+        
+        Returns:
+            None.
         """
         self.setStages([self.document, self.sentence_detector, self.token, self.keywords])
     
     def execute_pipeline(self, data):
-        """
+        """Execute spark nlp Pipeline on passed data.
+
+        Args:
+            data (pyspark.DataFrame): Distributed dataframe for unprocessed text data.
+        
+        Returns:
+            res (dict): dictionary of processed json for YAKE outputs.
         """
         res = self.fit(data)
         return res
 
-    def execute_light_pipeline(self, data)
+    def execute_light_pipeline(self, data):
+        """Execute spark nlp LightPipeline on passed data.
+
+        Args:
+            data (pyspark.DataFrame): Distributed dataframe for unprocessed text data.
+        
+        Returns:
+            res (dict): dictionary of processed json for YAKE outputs.
+        """
         res = LightPipeline(self.fit(data))
         return res
         
 class EmbeddingsPipeline(Pipeline):
     
-    def __init__(self, stopwords=None, document_assembler=None, sentence_detector=None tokenizer=None, keywords=None):
+    def __init__(self, stopwords=None, document_assembler=None, sentence_detector=None, tokenizer=None, keywords=None):
         super(EmbeddingsPipeline, self).__init__()
         self.stopwords = stopwords
         self.document_assembler = document_assembler
@@ -96,6 +121,14 @@ class EmbeddingsPipeline(Pipeline):
             .setVectorSize(config["vector_size"])
     
     def setup_pipeline(self):
+        """Stage spark nlp pipeline.
+
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         self.setStages([
             self.document_assembler,
             self.tokenizer,
@@ -103,12 +136,26 @@ class EmbeddingsPipeline(Pipeline):
             self.embeddings_finisher
         ])
         
-    def execute_pipeline(self, data)
-        """
+    def execute_pipeline(self, data):
+        """Execute spark nlp Pipeline on passed data.
+
+        Args:
+            data (pyspark.DataFrame): Distributed dataframe for unprocessed text data.
+        
+        Returns:
+            res (dict): dictionary of processed json for doc2vec outputs.
         """
         res = self.fit(data).transform(data)
         return res
 
-    def execute_light_pipeline(self, data)
+    def execute_light_pipeline(self, data):
+        """Execute spark nlp LightPipeline on passed data.
+
+        Args:
+            data (pyspark.DataFrame): Distributed dataframe for unprocessed text data.
+        
+        Returns:
+            res (dict): dictionary of processed json for doc2vec outputs.
+        """
         res = LightPipeline(self.fit(data).transform(data))
         return res

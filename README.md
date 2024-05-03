@@ -20,14 +20,14 @@ To run the system:
 ```bash
 cd /scratch/USER
 conda env create -p ./bdenv -f /scratch/USER/youtube-for-newspapers/env/environment.yaml
-conda activate bigdata
+conda activate /scratch/USER/bdenv
 ```
 3. Save environment variables.
 - MONGODB_USER  & MONGODB_PASS
 
 4. Run src/main.py
 ```bash
-src/main.py --cache --test
+/scratch/jp6203/bdenv/bin/python src/main.py --cache --test
 ```
 - `--config_path`: Specifies path to configuration file.
 - `--data_raw`: Specifies path to Proquest xml zip file locations (e.g. /scratch/work/public/proquest/proquest_hnp/BostonGlobe).

@@ -1,19 +1,37 @@
+import  pdb
+
 import uuid
-import shututil
+import shutil
 import logging
 from functools import reduce
 
 import pyspark
 from pyspark.sql import DataFrame
 
-from nlp_pipeline import KeywordPipeline, EmbeddingsPipeline
-from database
+from processing.nlp_pipeline import KeywordPipeline, EmbeddingsPipeline
 
 class XmlPipeline:
-    """
+    """A class representing an XML pipeline for performing batch uploads on Xml Documents.
+
+    Attributes:
+        batchsize (int): 
+        doc2vec_config (dict):
+        keyword_config (dict):
+        data_dir (pathlib.Path):
+        cache (bool):
+        cache_dir (pathlib.Path):
+        test (bool):
+        zip2batch (dict):
+        spark (pyspark.SparkConf):
+        ddfs_batches (list of pysark.DataFrame):
     """
 
     def __init__(self, batchsize = None, doc2vec_config=None, keyword_config=None, data_dir=None, cache=None, cache_dir=None, test=None):
+        """
+        Initialize the XmlPipeline object.
+
+        Args:
+        """
         # init attrs
         self.batchsize = batchsize
         self.doc2vec_config = doc2vec_config
@@ -30,6 +48,13 @@ class XmlPipeline:
 
     def from_config(cls, config, args):
         """
+        Instantiate XmlPipeline object from the config. Load in data both from the configuration file and arg paraser.
+
+        Args:
+            config (dict): Dictionary containing configuration arguments needed to run the system. 
+
+        Returns:
+            cls (XmlPipeline): Configured XmlPipeline object.
         """
         # config parameters
         batchsize = config["batchsize"]
@@ -51,7 +76,7 @@ class XmlPipeline:
             None.
     
         Returns:
-    
+            None. 
         """
         # setup Spark config
         conf = pyspark.SparkConf()
@@ -65,6 +90,12 @@ class XmlPipeline:
 
     def load_xml(zip_file): #fin ='250949924.xml'):
         """Load xml into spark dataframe.
+
+        Args:
+            zip_file (pathlib.Path): Path location for the zip file.
+
+        Returns:
+            ddf (pyspark.DataFrame): Distributed dataframe object version of the xml document.
         """
         # setup extraction
         zip_dir = zip_file.parent
@@ -89,10 +120,18 @@ class XmlPipeline:
         return ddf
 
     def setup_batch_jobs():
+        """Method to setup batch jobs. Supports test and initializes logging. Splits files to upload into batches.
 
+        Args:
+            None.
+
+        Returns:
+            batches (list of str): List of zip file names separated into batches.
+        """
         # setup batches
         list_of_zips = os.listdir(self.data_dir)
-        batches = [list_of_zips[i: i + self.batchsize] for targe range(0, len(list_of_zips), self.batchsize)]
+        pdb.set_trace()
+        batches = [list_of_zips[i: i + self.batchsize] for i in range(0, len(list_of_zips), self.batchsize)]
 
         # setup test support
         if self.test:
@@ -111,7 +150,6 @@ class XmlPipeline:
                                          
     def run_batch(self, batch):
         """Run batch job for xml pipeline.
-        
         """
         
         ddfs = []
@@ -127,10 +165,11 @@ class XmlPipeline:
             # process embeddings
             doc2vec_pipeline = EmbeddingsPipeline.from_config(self.doc2vec_config)
             doc2vec_pipeline.setup_pipeline()
-            data_w_embeddings = doc2vec_pipeline.execute_pipeline(data_w_keywords)
-
+            data_w_embeddings = doc2vec_pipeline.execute_pipeline(data)
+            
             # append data
-            ddfs.append(data_with_embeddings)
+            data_w_keywords.update(data_w_embeddings)
+            ddfs.append(data_w_keywords)
 
         # reduce processed data into single dataframe for batch
         ddf_batch = reduce(DataFrame.unionAll, ddfs)
@@ -139,7 +178,13 @@ class XmlPipeline:
     
     def cache_batch(batch, batch_data):
         """Cache batch job.
-        
+
+        Args:
+            batch
+            batch_data
+
+        Returns:
+            None.
         """
         # log processed data
         batch_id = uuid.uuid1()
@@ -153,6 +198,11 @@ class XmlPipeline:
 
     def batch_upload(db):
         """
+        Args:
+            db (NoSqlDatabase):
+
+        Returns:
+            None.
         """
         batches = self.setup_batch_jobs()
         
@@ -165,6 +215,6 @@ class XmlPipeline:
                 self.cache_batch(batch, batch_data)
             
             payload = self.create_payload(batch_data)
-            db.upload(payload)
+            db.upload(batch, payload)
 
         
