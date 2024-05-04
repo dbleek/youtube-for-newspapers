@@ -6,8 +6,8 @@ from pyspark.ml import Pipeline
 #sys.path.insert(0,f"/scratch/{USER}/bdenv/bin/python")
 #sys.path.extend(glob.glob(os.path.join(os.path.expanduser("~"), ".ivy2/jars/*.jar")))
 
-from sparknlp.base import LightPipeline
-from sparknlp.annotator import StopWordsCleaner, DocumentAssembler, SentenceDetector, EmbeddingsFinisher
+from sparknlp.base import LightPipeline, EmbeddingsFinisher
+from sparknlp.annotator import StopWordsCleaner, DocumentAssembler, SentenceDetector
 from sparknlp.annotator import Doc2VecModel, YakeKeywordExtraction
 
 class KeywordPipeline(Pipeline):
