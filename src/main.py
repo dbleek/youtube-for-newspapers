@@ -5,14 +5,16 @@ import getpass
 import pyspark
 from pathlib import Path
 
-from processing import xml_pipeline
-from io import database
-
 # set global vars
 ROOT_DIR = Path.cwd()
 USER = getpass.getuser()
 os.environ.get("MONGODB_USER")
 os.environ.get("MONGODB_PASS")
+
+import sys
+sys.path.insert(0, f"/scratch/{USER}/youtube-for-newspapers/src")
+from processing import xml_pipeline
+from io import database
 
 def read_config(fin):
     """
