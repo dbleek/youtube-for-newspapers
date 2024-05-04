@@ -10,7 +10,7 @@ ROOT_DIR = Path.cwd()
 USER = getpass.getuser()
 os.environ.get("MONGODB_USER")
 os.environ.get("MONGODB_PASS")
-
+print( f"/scratch/{USER}/youtube-for-newspapers/src")
 import sys
 sys.path.insert(0, f"/scratch/{USER}/youtube-for-newspapers/src")
 from processing import xml_pipeline
