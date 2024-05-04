@@ -19,7 +19,9 @@ To run the system:
 
 ```bash
 cd /scratch/USER
-conda env create -p ./bdenv -f /scratch/USER/youtube-for-newspapers/env/environment.yaml
+module purge
+module load anaconda3/2020.07
+conda env create -p ./bdenv -f /scratch/$USER/youtube-for-newspapers/env/environment.yaml
 conda activate /scratch/USER/bdenv
 ```
 3. Save environment variables.
