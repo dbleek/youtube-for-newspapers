@@ -8,6 +8,7 @@ from pyspark.ml import Pipeline
 import sparknlp
 spark = sparknlp.start()
 from sparknlp.base import LightPipeline, EmbeddingsFinisher
+from sparknlp.annotator.token.tokenizer import Tokenizer
 from sparknlp.annotator import StopWordsCleaner, DocumentAssembler, SentenceDetector
 from sparknlp.annotator import Doc2VecModel, YakeKeywordExtraction
 
@@ -61,7 +62,7 @@ class KeywordPipeline(Pipeline):
         Returns:
             None.
         """
-        self.setStages([self.document, self.sentence_detector, self.token, self.keywords])
+        self.setStages([self.document_assembler, self.sentence_detector, self.tokenizer, self.keywords])
     
     def execute_pipeline(self, data):
         """Execute spark nlp Pipeline on passed data.
@@ -111,7 +112,7 @@ class EmbeddingsPipeline(Pipeline):
             .setOutputCol("embedding_token")
         embeddings = Doc2VecModel.pretrained(
             name = pretrained_config["name"],
-            lang = pretrained_config["name"]
+            lang = pretrained_config["lang"]
         ) \
             .setInputCols(["embedding_token"]) \
             .setOutputCol("embeddings")
