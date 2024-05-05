@@ -238,6 +238,7 @@ class XmlPipeline:
         """
         batches = self.setup_batch_jobs()
         self.setup_nlp_pipelines()
+        self.setup_spark()
 
         # create batch jobs
         for batch in batches:
