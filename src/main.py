@@ -21,7 +21,7 @@ def read_config(fin):
     """
     Read .json config file
     """
-    with open('config.json') as f:
+    with open(fin) as f:
         config = json.load(f)
     return config
 

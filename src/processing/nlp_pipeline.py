@@ -119,8 +119,7 @@ class EmbeddingsPipeline(Pipeline):
         embeddings_finisher = EmbeddingsFinisher() \
             .setInputCols(["embeddings"]) \
             .setOutputCols("finished_embeddings") \
-            .setOutputAsVector(config["vector_output"]) \
-            .setVectorSize(config["vector_size"])
+            .setOutputAsVector(config["vector_output"])
     
     def setup_pipeline(self):
         """Stage spark nlp pipeline.
