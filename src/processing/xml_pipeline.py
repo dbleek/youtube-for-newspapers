@@ -137,11 +137,10 @@ class XmlPipeline:
         data_w_keywords = self.yake_pipeline.execute_pipeline(data)
             
         # process embeddings
-        data_w_embeddings = self.doc2vec_pipeline.execute_pipeline(data)
+        data_w_embeddings = self.doc2vec_pipeline.execute_pipeline(data_w_keywords)
             
         # append data
-        data_w_keywords.update(data_w_embeddings)
-
+        pdb.set_trace()
         return data_w_keywords
         
       
