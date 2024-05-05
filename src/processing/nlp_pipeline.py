@@ -92,7 +92,6 @@ class EmbeddingsPipeline(Pipeline):
     
     def __init__(self, stopwords=None, document_assembler=None, sentence_detector=None, tokenizer=None, keywords=None):
         super(EmbeddingsPipeline, self).__init__()
-        self.stopwords = stopwords
         self.document_assembler = document_assembler
         self.sentence_detector = sentence_detector
         self.tokenizer = tokenizer
@@ -120,6 +119,7 @@ class EmbeddingsPipeline(Pipeline):
             .setInputCols(["embeddings"]) \
             .setOutputCols("finished_embeddings") \
             .setOutputAsVector(config["vector_output"])
+        return cls(document_assembler = document_assembler, tokenizer=tokenizer, embeddings=embeddings, embeddings_finisher = embeddings_finisher)
     
     def setup_pipeline(self):
         """Stage spark nlp pipeline.
