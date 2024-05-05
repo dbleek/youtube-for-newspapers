@@ -29,7 +29,11 @@
                         	"dimensions": 300,
                         	"similarity": "euclidean",
                         	"type": "knnVector"
-                        }]
+                        },
+			{
+      			"type": "filter",
+      			"path": "ObjectType"
+    			},]
                     }
             	}
 	    },
