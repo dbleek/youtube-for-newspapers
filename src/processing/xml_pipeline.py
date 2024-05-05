@@ -249,8 +249,8 @@ class XmlPipeline:
             batch_data = self.run_batch(batch)
             self.ddfs_batches.extend(batch_data)
             
-            if self.cache:
-                self.cache_batch(batch, batch_data)
+            #if self.cache:
+            #    self.cache_batch(batch, batch_data)
             
             pdb.set_trace()
             batch_payloads = [payload.toPandas().to_dict(orient="records") for payload in batch_data]
