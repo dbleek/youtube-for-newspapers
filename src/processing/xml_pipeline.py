@@ -189,7 +189,7 @@ class XmlPipeline:
                     processed_xml = self.process_xml(xml_file)
                     ddfs.append(processed_xml)
                 except:
-                    logging.info(f"{batch_id} {xml_file} FAIL")
+                    logging.info(f"{xml_file} FAIL")
             
             # cleanup
             shutil.rmtree(tmp_dir)
