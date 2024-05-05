@@ -37,8 +37,8 @@ class NoSQLDatabase:
             # upload results 
             upload_result = payload.write.format("com.mongodb.spark.sql.DefaultSource")\
                 .mode("overwrite")\
-                .option("database",self.db) \
-                .option("collection", self.collection)\
+                .option("database", "bigdata") \
+                .option("collection", "newspapers")\
                 .option("uri", self.uri)\
                 .save() 
             
