@@ -18,11 +18,20 @@ To run the system:
 - Packages to install listed in env/environment.yaml
 
 ```bash
-cd /scratch/USER
+cd $SCRATCH
 module purge
 module load anaconda3/2020.07
-conda env create -p ./bdenv -f /scratch/$USER/youtube-for-newspapers/env/environment.yaml
-conda activate /scratch/USER/bdenv
+module load jdk/1.8.0_271
+conda create -p ./penv python=3 ## -f $SCRATCH/youtube-for-newspapers/env/environment.yaml
+source activate $SCRATCH/penv
+mkdir $HOME/.conda
+mkdir $SCRATCH/conda_pkgs
+ln -s $SCRATCH/conda_pkgs $HOME/.conda/pkgs
+conda install -c anaconda pandas
+conda install -c johnsnowlabs spark-nlp==5.3.3 ## pyspark==3.2.3 jupyter
+pip install spark-nlp==5.3.3 pyspark==3.2.3 jupyter
+pip install pymongo
+conda install tqdm
 ```
 3. Save environment variables.
 - MONGODB_USER  & MONGODB_PASS
