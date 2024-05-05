@@ -96,7 +96,7 @@ class XmlPipeline:
         sc = pyspark.SparkContext(conf=conf)
         self.spark = pyspark.SQLContext.getOrCreate(sc)
 
-    def extract_xml(self, zip_file): #fin ='250949924.xml'):
+    def extract_xml(self, zip_file):
         """Load xml into spark dataframe.
 
         Args:
@@ -140,8 +140,7 @@ class XmlPipeline:
         data_w_embeddings = self.doc2vec_pipeline.execute_pipeline(data_w_keywords)
             
         # append data
-        pdb.set_trace()
-        return data_w_keywords
+        return data_w_embeddings
         
       
 
@@ -179,23 +178,23 @@ class XmlPipeline:
         """Run batch job for xml pipeline.
         """
         
-        processed_xml = []
+        ddfs = []
         for zip_file in batch:
             # extract zip file and load into distributed data frame
             tmp_dir = self.extract_xml(zip_file)
             files_to_process = os.listdir(tmp_dir)
             
             for xml_file in tqdm(files_to_process, desc="Processing XML documents..."):
-                processed_dict = self.process_xml(xml_file)
-                processed_xml.append(processed_dict)
+                processed_xml = self.process_xml(xml_file)
+                ddfs.append(processed_xml)
+            
+            # cleanup
+            shututil.rmtree(tmp_dir)
         
         # reduce processed data into single dataframe for batch
-        #ddf_batch = reduce(DataFrame.unionAll, ddfs)
+        ddf_batch = reduce(DataFrame.unionAll, ddfs)
 
-        # cleanup
-        shututil.rmtree(tmp_dir)
-         
-        return processed_xml
+        return ddf_batch
 
     
     def cache_batch(self, batch, batch_data):

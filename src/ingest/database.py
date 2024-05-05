@@ -15,21 +15,29 @@ class NoSQLDatabase:
         self.db = db
         self.collection = collection
         self.index = index
+        self.uri = uri
     
     @classmethod
     def from_config(cls, config):
         config_conn = config["connection"]
         config_index = config["atlas_index"]
-        mongodb_conn = f"mongodb+srv://{MONGODB_USER}:{MONGODB_PASS}@hybrid-search-test.owlo8k4.mongodb.net/"
-        cluster = MongoClient(host=[mongodb_conn])
+        uri = f"mongodb+srv://{MONGODB_USER}:{MONGODB_PASS}@bigdatafinalproject.sl03s.mongodb.net/?retryWrites=true&w=majority&appName=BigDataFinalProject"
+        cluster = MongoClient(host=[uri])
         db = cluster[config_conn["database"]]
         collection = db[config_conn["collection"]]
-        return cls(cluster=cluster, db=db, collection=collection, index = config_index)
+        return cls(cluster=cluster, db=db, collection=collection, index = config_index, uri = uri)
     
     def set_index(self):
         self.collection.create_search_index(model=self.index)
 
     def upload(self, batch, payload):
+        upload_result = payload.write.format("com.mongodb.spark.sql.DefaultSource")\
+            .mode("overwrite") \
+            .option("database", self.db) \
+            .option("collection", self.collection) \
+            .option("uri", self.uri) \
+            .save()
+
         upload_result = self.collection.insert_many(payload)
         
         if upload_result.modified_count == len(payload):

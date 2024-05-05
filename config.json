@@ -18,8 +18,8 @@
     },
     "nosql_database" : {
         "connection" : {
-            "database": "SearchDB",
-            "collection":"hybridSearchTest"
+            "database": "bigdata",
+            "collection":"newspapers"
         },
         "atlas_index" : {
             "definition": {
