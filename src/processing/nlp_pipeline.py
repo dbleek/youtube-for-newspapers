@@ -90,12 +90,12 @@ class KeywordPipeline(Pipeline):
         
 class EmbeddingsPipeline(Pipeline):
     
-    def __init__(self, stopwords=None, document_assembler=None, sentence_detector=None, tokenizer=None, keywords=None):
+    def __init__(self, document_assembler=None, tokenizer=None, embeddings=embeddings, embeddings_finisher=embeddings_finisher):
         super(EmbeddingsPipeline, self).__init__()
         self.document_assembler = document_assembler
-        self.sentence_detector = sentence_detector
         self.tokenizer = tokenizer
-        self.keywords = keywords
+        self.embeddings= embeddings
+        self.embeddings_finisher= embeddings_finisher
     
     @classmethod
     def from_config(cls, config):
