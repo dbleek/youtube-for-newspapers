@@ -1,4 +1,4 @@
-import pdb
+import tqdm
 import logging
 import os        
 from zipfile import ZipFile
@@ -39,7 +39,7 @@ class NoSQLDatabase:
         #    .save()
 
         status_cnt = 0
-        for payload in batch_payload:
+        for payload in tqdm(batch_payload, desc = "Uploading Batch..."):
             upload_result = self.collection.insert_many(payload)
         
             if upload_result.modified_count == len(payload):

@@ -213,12 +213,13 @@ class XmlPipeline:
         # log processed data
         batch_id = uuid.uuid1()
         
-        for zip_file in batch:
+        for zip_file in tqdm(batch, desc = f"Caching Batch..."):
             self.zip2batch[zip_file] = batch_id
             logging.info(f"{batch_id} {zip_file}")
 
         # cache data
-        batch_data.write.parquet(self.cache_dir / "data" / f"{batch_id}.parquet")
+        for batch_item in batch_data:
+            batch_data.write.parquet(self.cache_dir / "data" / f"{batch_id}.parquet")
     
     def setup_nlp_pipelines(self):
         spark = sparknlp.start()
