@@ -71,7 +71,7 @@ class KeywordPipeline(Pipeline):
         Returns:
             res (dict): dictionary of processed json for YAKE outputs.
         """
-        res = self.fit(data).transform(data)
+        res = self.fit(data).transform(data).drop("keyword_document").drop("keyword_sentence").drop("keyword_token")
         return res
 
     def execute_light_pipeline(self, data):
@@ -144,7 +144,7 @@ class EmbeddingsPipeline(Pipeline):
         Returns:
             res (dict): dictionary of processed json for doc2vec outputs.
         """
-        res = self.fit(data).transform(data)
+        res = self.fit(data).transform(data).drop("embedding_document").drop("embedding_token").drop("embeddings")
         return res
 
     def execute_light_pipeline(self, data):

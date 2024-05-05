@@ -195,9 +195,9 @@ class XmlPipeline:
             shutil.rmtree(tmp_dir)
         
         # reduce processed data into single dataframe for batch
-        ddf_batch = reduce(DataFrame.unionAll, ddfs)
+        #ddf_batch = reduce(DataFrame.unionAll, ddfs)
 
-        return ddf_batch
+        return ddfs
 
     
     def cache_batch(self, batch, batch_data):
@@ -246,11 +246,14 @@ class XmlPipeline:
         # create batch jobs
         for batch in batches:
             batch_data = self.run_batch(batch)
-            self.ddfs_batches.append(batch_data)
+            self.ddfs_batches.extend(batch_data)
             
             if self.cache:
                 self.cache_batch(batch, batch_data)
             
-            db.upload(batch, batch_data)
+            batch_payloads = [payload.toPandas().to_dict(orient="records") for payload in batch_data]
+            
+            db.upload(batch, batch_payloads)
 
         
+

@@ -31,21 +31,24 @@ class NoSQLDatabase:
         self.collection.create_search_index(model=self.index)
 
     def upload(self, batch, payload):
-        upload_result = payload.write.format("com.mongodb.spark.sql.DefaultSource")\
-            .mode("overwrite") \
-            .option("database", self.db) \
-            .option("collection", self.collection) \
-            .option("uri", self.uri) \
-            .save()
+        #upload_result = payload.write.format("com.mongodb.spark.sql.DefaultSource")\
+        #    .mode("overwrite") \
+        #    .option("database", self.db) \
+        #    .option("collection", self.collection) \
+        #    .option("uri", self.uri) \
+        #    .save()
 
-        upload_result = self.collection.insert_many(payload)
+        status_cnt = 0
+        for payload in batch_payload:
+            upload_result = self.collection.insert_many(payload)
         
-        if upload_result.modified_count == len(payload):
-            status = "SUCCESS"
-        else:
-            status = "FAIL"
-
-        logging.info(f"{batch} {status}")
+            if upload_result.modified_count == len(payload):
+                status = 1
+            else:
+                status = 0
+            status_cnt += status 
+        
+        logging.info(f"{batch} BATCHSIZE={len(batch_payload)} STATUSCOUNT={status_cnt}")
 
     def query_keyword(self, query, pipeline):
         processed_query = pipeline.execute_light_pipeline(query)
