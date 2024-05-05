@@ -36,7 +36,7 @@ class NoSQLDatabase:
         for payload in tqdm(batch_payload, desc = "Uploading Batch..."):
             # upload results 
             upload_result = payload.write.format("com.mongodb.spark.sql.DefaultSource")\
-                .mode("overwrite")\
+                .mode("append")\
                 .option("database", "bigdata") \
                 .option("collection", "newspapers")\
                 .option("uri", self.uri)\
