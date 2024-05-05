@@ -10,7 +10,7 @@ MONGODB_PASS = os.environ.get("MONGODB_PASS")
 class NoSQLDatabase:    
     
     # Configure mongodbd
-    def __init__(self, cluster=None, db=None, collection=None, index = None):
+    def __init__(self, cluster=None, db=None, collection=None, index = None, uri = None):
         self.cluster = cluster
         self.db = db
         self.collection = collection
