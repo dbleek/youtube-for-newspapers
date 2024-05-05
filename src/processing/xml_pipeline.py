@@ -1,8 +1,13 @@
-import  pdb
+import pdb
 
+import os 
 import uuid
 import shutil
 import logging
+
+from tqdm import tqdm
+from zipfile import ZipFile
+from pathlib import Path
 from functools import reduce
 
 import pyspark
@@ -17,7 +22,7 @@ class XmlPipeline:
         batchsize (int): 
         doc2vec_config (dict):
         keyword_config (dict):
-        data_dir (pathlib.Path):
+        data_raw (pathlib.Path):
         cache (bool):
         cache_dir (pathlib.Path):
         test (bool):
@@ -26,7 +31,7 @@ class XmlPipeline:
         ddfs_batches (list of pysark.DataFrame):
     """
 
-    def __init__(self, batchsize = None, doc2vec_config=None, keyword_config=None, data_dir=None, cache=None, cache_dir=None, test=None):
+    def __init__(self, batchsize = None, doc2vec_config=None, keyword_config=None, data_raw=None, cache=None, cache_dir=None, test=None):
         """
         Initialize the XmlPipeline object.
 
@@ -36,7 +41,7 @@ class XmlPipeline:
         self.batchsize = batchsize
         self.doc2vec_config = doc2vec_config
         self.keyword_config = keyword_config
-        self.data_dir = data_dir
+        self.data_raw = data_raw
         self.cache = cache
         self.cache_dir = cache_dir
         self.test = test
@@ -45,7 +50,10 @@ class XmlPipeline:
         # processing attrs
         self.spark = None
         self.ddfs_batches = []
-
+        self.yake_pipeline = None
+        self.doc2vec_pipeline = None
+    
+    @classmethod
     def from_config(cls, config, args):
         """
         Instantiate XmlPipeline object from the config. Load in data both from the configuration file and arg paraser.
@@ -62,14 +70,14 @@ class XmlPipeline:
         doc2vec_config = config["doc2vec"]
 
         # args parameters
-        data_dir = args.data_dir
+        data_raw = Path(args.data_raw)
         cache = args.cache
-        cache_dir = args.cache_dir
+        cache_dir = Path(args.cache_dir)
         test = args.test
         
-        return cls(batchsize = batchsize, doc2vec_config=doc2vec_config, keyword_config=keyword_config, data_dir=data_dir, cache = cache, cache_dir = cache_dir, test = test)
+        return cls(batchsize = batchsize, doc2vec_config=doc2vec_config, keyword_config=keyword_config, data_raw=data_raw, cache = cache, cache_dir = cache_dir, test = test)
     
-    def setup_spark():
+    def setup_spark(self):
         """Setup Spark context by setting config and creating context.
     
         Args:
@@ -88,7 +96,7 @@ class XmlPipeline:
         sc = pyspark.SparkContext(conf=conf)
         self.spark = pyspark.SQLContext.getOrCreate(sc)
 
-    def load_xml(zip_file): #fin ='250949924.xml'):
+    def extract_xml(self, zip_file): #fin ='250949924.xml'):
         """Load xml into spark dataframe.
 
         Args:
@@ -97,29 +105,48 @@ class XmlPipeline:
         Returns:
             ddf (pyspark.DataFrame): Distributed dataframe object version of the xml document.
         """
+        
         # setup extraction
-        zip_dir = zip_file.parent
-        fin = zip_file.parts[-1]
+        zip_path = self.data_raw / zip_file
         tmp_dir = self.cache_dir / "tmp"
         tmp_dir.mkdir(exist_ok=True, parents=True)
         
         # extract zip file
-        with ZipFile(zip_dir, "r") as fzip:
-            print(fzip.infolist())
-            fzip.extract(fin , tmp_dir)
+        with ZipFile(zip_path, "r") as fzip:
+            fzip.extractall(tmp_dir)
 
+        return tmp_dir 
+
+    def process_xml(self): 
+        """Load xml into spark dataframe.
+
+        Args:
+            zip_file (pathlib.Path): Path location for the zip file.
+
+        Returns:
+            ddf (pyspark.DataFrame): Distributed dataframe object version of the xml document.
+        """
+ 
         # read zip file into distributed dataframe
-        ddf = self.spark.read \
+        data = self.spark.read \
             .option('rootTag', 'Record')\
             .option('rowTag', 'Record')\
             .format("xml").load(f"tmp/{fin}.xml")
+                
+        # process keywords
+        data_w_keywords = self.yake_pipeline.execute_pipeline(data)
+            
+        # process embeddings
+        data_w_embeddings = self.doc2vec_pipeline.execute_pipeline(data)
+            
+        # append data
+        data_w_keywords.update(data_w_embeddings)
 
-        # cleanup
-        shututil.rmtree(tmp_dir)
+        return data_w_keywords
         
-        return ddf
+      
 
-    def setup_batch_jobs():
+    def setup_batch_jobs(self):
         """Method to setup batch jobs. Supports test and initializes logging. Splits files to upload into batches.
 
         Args:
@@ -129,8 +156,7 @@ class XmlPipeline:
             batches (list of str): List of zip file names separated into batches.
         """
         # setup batches
-        list_of_zips = os.listdir(self.data_dir)
-        pdb.set_trace()
+        list_of_zips = os.listdir(self.data_raw)
         batches = [list_of_zips[i: i + self.batchsize] for i in range(0, len(list_of_zips), self.batchsize)]
 
         # setup test support
@@ -139,8 +165,10 @@ class XmlPipeline:
 
         # setup logging
         if self.cache:
+            log_path = self.cache_dir / "logs" / "batch.log"
+            log_path.parent.mkdir(exist_ok=True, parents=True)
             logging.basicConfig(
-                filename= self.cache_dir / "logs" / "batch.log",
+                filename= log_path,
                 level=logging.INFO,
                 format="%(asctime)s %(levelname)s %(message)s",
                 datefmt = "%Y-%m-%d %H:%M:%S"
@@ -152,31 +180,26 @@ class XmlPipeline:
         """Run batch job for xml pipeline.
         """
         
-        ddfs = []
+        processed_xml = []
         for zip_file in batch:
             # extract zip file and load into distributed data frame
-            data = load_xml(zip_file)
+            tmp_dir = self.extract_xml(zip_file)
+            files_to_process = os.listdir(tmp_dir)
             
-            # process keywords
-            yake_pipeline = KeywordPipeline.from_config(self.keywords_config)
-            yake_pipeline.setup_pipeline()
-            data_w_keywords = yake_pipeline.execute_pipeline(data)
-            
-            # process embeddings
-            doc2vec_pipeline = EmbeddingsPipeline.from_config(self.doc2vec_config)
-            doc2vec_pipeline.setup_pipeline()
-            data_w_embeddings = doc2vec_pipeline.execute_pipeline(data)
-            
-            # append data
-            data_w_keywords.update(data_w_embeddings)
-            ddfs.append(data_w_keywords)
-
+            for xml_file in tqdm(files_to_process, desc="Processing XML documents..."):
+                processed_dict = self.process_xml(xml_file)
+                processed_xml.append(processed_dict)
+        
         # reduce processed data into single dataframe for batch
-        ddf_batch = reduce(DataFrame.unionAll, ddfs)
-        return ddf_batch
+        #ddf_batch = reduce(DataFrame.unionAll, ddfs)
+
+        # cleanup
+        shututil.rmtree(tmp_dir)
+         
+        return processed_xml
 
     
-    def cache_batch(batch, batch_data):
+    def cache_batch(self, batch, batch_data):
         """Cache batch job.
 
         Args:
@@ -195,8 +218,17 @@ class XmlPipeline:
 
         # cache data
         batch_data.write.parquet(self.cache_dir / "data" / f"{batch_id}.parquet")
-
-    def batch_upload(db):
+    
+    def setup_nlp_pipelines(self):
+        #s process keywords
+        self.yake_pipeline = KeywordPipeline.from_config(self.keyword_config)
+        self.yake_pipeline.setup_pipeline()
+            
+        # process embeddings
+        self.doc2vec_pipeline = EmbeddingsPipeline.from_config(self.doc2vec_config)
+        self.doc2vec_pipeline.setup_pipeline()
+    
+    def batch_upload(self, db):
         """
         Args:
             db (NoSqlDatabase):
@@ -205,7 +237,8 @@ class XmlPipeline:
             None.
         """
         batches = self.setup_batch_jobs()
-        
+        self.setup_nlp_pipelines()
+
         # create batch jobs
         for batch in batches:
             batch_data = self.run_batch(batch)
@@ -214,7 +247,6 @@ class XmlPipeline:
             if self.cache:
                 self.cache_batch(batch, batch_data)
             
-            payload = self.create_payload(batch_data)
-            db.upload(batch, payload)
+            db.upload(batch, batch_data)
 
         

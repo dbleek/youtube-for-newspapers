@@ -1,3 +1,4 @@
+import pdb
 import logging
 import os        
 from zipfile import ZipFile
@@ -9,7 +10,7 @@ MONGODB_PASS = os.environ.get("MONGODB_PASS")
 class NoSQLDatabase:    
     
     # Configure mongodbd
-    def init(self, cluster=None, db=None, collection=None, index = None):
+    def __init__(self, cluster=None, db=None, collection=None, index = None):
         self.cluster = cluster
         self.db = db
         self.collection = collection
@@ -18,7 +19,7 @@ class NoSQLDatabase:
     @classmethod
     def from_config(cls, config):
         config_conn = config["connection"]
-        config_index = config["index"]
+        config_index = config["atlas_index"]
         mongodb_conn = f"mongodb+srv://{MONGODB_USER}:{MONGODB_PASS}@hybrid-search-test.owlo8k4.mongodb.net/"
         cluster = MongoClient(host=[mongodb_conn])
         db = cluster[config_conn["database"]]
@@ -26,7 +27,7 @@ class NoSQLDatabase:
         return cls(cluster=cluster, db=db, collection=collection, index = config_index)
     
     def set_index(self):
-        self.collection.create_search_index(self.index)
+        self.collection.create_search_index(model=self.index)
 
     def upload(self, batch, payload):
         upload_result = self.collection.insert_many(payload)

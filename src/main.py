@@ -4,13 +4,14 @@ import json
 import getpass
 import pyspark
 from pathlib import Path
+from argparse import ArgumentParser
 
 # set global vars
 ROOT_DIR = Path.cwd()
 USER = getpass.getuser()
 os.environ.get("MONGODB_USER")
 os.environ.get("MONGODB_PASS")
-print( f"/scratch/{USER}/youtube-for-newspapers/src")
+
 import sys
 sys.path.insert(0, f"/scratch/{USER}/youtube-for-newspapers/src")
 from processing import xml_pipeline
@@ -20,7 +21,7 @@ def read_config(fin):
     """
     Read .json config file
     """
-    with open('data.json') as f:
+    with open('config.json') as f:
         config = json.load(f)
     return config
 
@@ -42,7 +43,7 @@ def create_arg_parser():
     argument_parser.add_argument(
         "--data_raw",
         type = str,
-        default = "/scratch/work/public/proquest/proquest_hnp/BostonGlobe/BG_20151210212722_00001.zip"
+        default = "/scratch/work/public/proquest/proquest_hnp/BostonGlobe"
     )
     argument_parser.add_argument(
         "--cache",
@@ -71,12 +72,13 @@ def run(args):
     
     # setup database connection
     db = database.NoSQLDatabase.from_config(database_config)
-    db.set_index()
     
     # run processing batch job
     pipe = xml_pipeline.XmlPipeline.from_config(processing_config, args)
-    pipe.batch_upload(db=db)
+    pipe.batch_upload(db)
     
+    # set search index
+    db.set_index()
     
 def main():
     args = create_arg_parser().parse_args()
