@@ -1,4 +1,4 @@
-import tqdm
+from tqdm import tqdm
 import logging
 import os        
 from zipfile import ZipFile
