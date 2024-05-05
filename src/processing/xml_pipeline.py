@@ -216,8 +216,8 @@ class XmlPipeline:
         print("Caching Batch...")
         
         # cache data
-        with open(f'{batch_id}.pickle', 'wb') as handle:
-            pickle.dump(batch_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        # with open(f'{batch_id}.pickle', 'wb') as handle:
+        #     pickle.dump(batch_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
     def setup_nlp_pipelines(self):
         spark = sparknlp.start()
