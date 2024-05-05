@@ -43,13 +43,13 @@ class NoSQLDatabase:
                 .save() 
             
             #upload_result = self.collection.insert_one(payload)
-            if upload_result.modified_count == len(payload):
-                status = 1
-            else:
-                status = 0
-            status_cnt += status 
+        #     if upload_result.modified_count == len(payload):
+        #         status = 1
+        #     else:
+        #         status = 0
+        #     status_cnt += status 
         
-        logging.info(f"{batch} BATCHSIZE={len(batch_payload)} STATUSCOUNT={status_cnt}")
+        # logging.info(f"{batch} BATCHSIZE={len(batch_payload)} STATUSCOUNT={status_cnt}")
 
     def query_keyword(self, query, pipeline):
         processed_query = pipeline.execute_light_pipeline(query)
