@@ -71,7 +71,7 @@ class KeywordPipeline(Pipeline):
         Returns:
             res (dict): dictionary of processed json for YAKE outputs.
         """
-        res = self.fit(data)
+        res = self.fit(data).transform(data)
         return res
 
     def execute_light_pipeline(self, data):
@@ -83,7 +83,7 @@ class KeywordPipeline(Pipeline):
         Returns:
             res (dict): dictionary of processed json for YAKE outputs.
         """
-        res = LightPipeline(self.fit(data))
+        res = LightPipeline(self.fit(data).transform(data))
         return res
         
 class EmbeddingsPipeline(Pipeline):
