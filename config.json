@@ -13,7 +13,7 @@
                 "lang": "en"
             },
             "vector_size" : 300,
-            "vector_output": true
+            "vector_output": false
         }
     },
     "nosql_database" : {
