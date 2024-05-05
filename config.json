@@ -1,0 +1,39 @@
+{
+    "processing_pipeline": {
+	"batchsize" : 4,
+        "keywords" : {
+            "min_ngrams": 1,
+            "max_ngrams": 3,
+            "num_keywords": 20,
+            "context_chars": ["(", ")", "?", "!", ".", ","]
+        },
+        "doc2vec": {
+            "pretrained_model" : {
+                "name" : "doc2vec_gigaword_300",
+                "lang": "en"
+            },
+            "vector_size" : 300,
+            "vector_output": true
+        }
+    },
+    "nosql_database" : {
+        "connection" : {
+            "database": "SearchDB",
+            "collection":"hybridSearchTest"
+        },
+        "atlas_index" : {
+            "definition": {
+		"mappings": {
+                    "fields": {
+                    	"finished_embeddings": [{
+                        	"dimensions": 300,
+                        	"similarity": "euclidean",
+                        	"type": "knnVector"
+                        }]
+                    }
+            	}
+	    },
+            "name": "doc2vec_index"
+        }
+    }
+}
