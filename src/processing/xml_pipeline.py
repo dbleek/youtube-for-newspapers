@@ -131,7 +131,7 @@ class XmlPipeline:
         data = self.spark.read \
             .option('rootTag', 'Record')\
             .option('rowTag', 'Record')\
-            .format("xml").load(self.cache_dir / "tmp" / xml_file )
+            .format("xml").load(str(self.cache_dir / "tmp" / xml_file ))
                 
         # process keywords
         data_w_keywords = self.yake_pipeline.execute_pipeline(data)
