@@ -1,5 +1,6 @@
 import pdb
 
+import pickle
 import os 
 import uuid
 import shutil
@@ -212,9 +213,11 @@ class XmlPipeline:
             self.zip2batch[zip_file] = batch_id
             logging.info(f"{batch_id} {zip_file}")
 
+        print("Caching Batch...")
+        
         # cache data
-        for batch_item in tqdm(batch_data, desc = f"Caching Batch..."):
-            batch_item.write.parquet(str(self.cache_dir / "data" / f"{batch_id}_{zip_file}.parquet"))
+        with open(f'{batch_id}.pickle', 'wb') as handle:
+            pickle.dump(batch_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
     def setup_nlp_pipelines(self):
         spark = sparknlp.start()
@@ -244,10 +247,10 @@ class XmlPipeline:
             batch_data = self.run_batch(batch)
             self.ddfs_batches.extend(batch_data)
             
-            if self.cache:
-                self.cache_batch(batch, batch_data)
-           
             batch_payloads = [payload.toPandas().to_dict(orient="records") for payload in batch_data]
+            
+            if self.cache:
+                self.cache_batch(batch, batch_payloads)
             
             # cleanup
             shutil.rmtree(self.tmp_dir)
