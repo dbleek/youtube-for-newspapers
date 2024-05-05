@@ -117,7 +117,7 @@ class XmlPipeline:
 
         return tmp_dir 
 
-    def process_xml(self): 
+    def process_xml(self, xml_file): 
         """Load xml into spark dataframe.
 
         Args:
@@ -131,7 +131,7 @@ class XmlPipeline:
         data = self.spark.read \
             .option('rootTag', 'Record')\
             .option('rowTag', 'Record')\
-            .format("xml").load(f"tmp/{fin}.xml")
+            .format("xml").load(f"tmp/{xml_file}.xml")
                 
         # process keywords
         data_w_keywords = self.yake_pipeline.execute_pipeline(data)
