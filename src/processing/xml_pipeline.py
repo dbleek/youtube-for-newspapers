@@ -12,7 +12,7 @@ from functools import reduce
 
 import pyspark
 from pyspark.sql import DataFrame
-
+import sparknlp
 from processing.nlp_pipeline import KeywordPipeline, EmbeddingsPipeline
 
 class XmlPipeline:
@@ -220,6 +220,8 @@ class XmlPipeline:
         batch_data.write.parquet(self.cache_dir / "data" / f"{batch_id}.parquet")
     
     def setup_nlp_pipelines(self):
+        spark = sparknlp.start()
+
         #s process keywords
         self.yake_pipeline = KeywordPipeline.from_config(self.keyword_config)
         self.yake_pipeline.setup_pipeline()

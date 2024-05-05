@@ -5,8 +5,6 @@ from pyspark.ml import Pipeline
 #USER = getpass.getuser()
 #sys.path.insert(0,f"/scratch/{USER}/bdenv/bin/python")
 #sys.path.extend(glob.glob(os.path.join(os.path.expanduser("~"), ".ivy2/jars/*.jar")))
-import sparknlp
-spark = sparknlp.start()
 from sparknlp.base import LightPipeline, EmbeddingsFinisher
 from sparknlp.annotator.token.tokenizer import Tokenizer
 from sparknlp.annotator import StopWordsCleaner, DocumentAssembler, SentenceDetector
