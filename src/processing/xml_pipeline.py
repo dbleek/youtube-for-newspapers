@@ -218,8 +218,8 @@ class XmlPipeline:
             logging.info(f"{batch_id} {zip_file}")
 
         # cache data
-        #for batch_item in tqdm(batch_data, desc = f"Caching Batch..."):
-        #    batch_item.write.parquet(str(self.cache_dir / "data" / f"{batch_id}_{zip_file}.parquet"))
+        for batch_item in tqdm(batch_data, desc = f"Caching Batch..."):
+            batch_item.write.parquet(str(self.cache_dir / "data" / f"{batch_id}_{zip_file}.parquet"))
     
     def setup_nlp_pipelines(self):
         spark = sparknlp.start()
@@ -252,6 +252,7 @@ class XmlPipeline:
             if self.cache:
                 self.cache_batch(batch, batch_data)
             
+            pdb.set_trace()
             batch_payloads = [payload.toPandas().to_dict(orient="records") for payload in batch_data]
             
             db.upload(batch, batch_payloads)
