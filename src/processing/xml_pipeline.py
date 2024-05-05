@@ -193,7 +193,7 @@ class XmlPipeline:
                     print(f"FAIL: {xml_file}")
             
             # cleanup
-            shututil.rmtree(tmp_dir)
+            shutil.rmtree(tmp_dir)
         
         # reduce processed data into single dataframe for batch
         ddf_batch = reduce(DataFrame.unionAll, ddfs)
