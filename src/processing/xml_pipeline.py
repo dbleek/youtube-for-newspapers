@@ -186,7 +186,7 @@ class XmlPipeline:
             self.tmp_dir = self.extract_xml(zip_file)
             files_to_process = os.listdir(self.tmp_dir)
             
-            for xml_file in tqdm(files_to_process[:30], desc="Processing XML documents..."):
+            for xml_file in tqdm(files_to_process[:5], desc="Processing XML documents..."):
                 try:
                     processed_xml = self.process_xml(xml_file)
                     ddfs.append(processed_xml)
@@ -250,12 +250,12 @@ class XmlPipeline:
             # batch_payloads = [payload.toPandas().to_dict(orient="records") for payload in batch_data]
             
             if self.cache:
-                self.cache_batch(batch, batch_payloads)
+                self.cache_batch(batch, batch_data)
             
             # cleanup
             shutil.rmtree(self.tmp_dir)
 
-            db.upload(batch, batch_payloads)
+            db.upload(batch, batch_data)
 
     @staticmethod
     def process_payload(payload):
