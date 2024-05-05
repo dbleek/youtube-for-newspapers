@@ -219,7 +219,7 @@ class XmlPipeline:
 
         # cache data
         for batch_item in batch_data:
-            batch_data.write.parquet(self.cache_dir / "data" / f"{batch_id}.parquet")
+            batch_item.write.parquet(self.cache_dir / "data" / f"{batch_id}.parquet")
     
     def setup_nlp_pipelines(self):
         spark = sparknlp.start()
