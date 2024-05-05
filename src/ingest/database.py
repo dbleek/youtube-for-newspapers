@@ -31,15 +31,9 @@ class NoSQLDatabase:
         self.collection.create_search_index(model=self.index)
 
     def upload(self, batch, payload):
-        #upload_result = payload.write.format("com.mongodb.spark.sql.DefaultSource")\
-        #    .mode("overwrite") \
-        #    .option("database", self.db) \
-        #    .option("collection", self.collection) \
-        #    .option("uri", self.uri) \
-        #    .save()
-
+        
         status_cnt = 0
-        for payload in tqdm(batch_payload, desc = "Uploading Batch..."):
+        for payload in tqdm(payload, desc = "Uploading Batch..."):
             upload_result = self.collection.insert_many(payload)
         
             if upload_result.modified_count == len(payload):
