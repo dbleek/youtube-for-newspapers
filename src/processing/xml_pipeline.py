@@ -247,7 +247,7 @@ class XmlPipeline:
             batch_data = self.run_batch(batch)
             self.ddfs_batches.extend(batch_data)
             
-            batch_payloads = [payload.toPandas().to_dict(orient="records") for payload in batch_data]
+            # batch_payloads = [payload.toPandas().to_dict(orient="records") for payload in batch_data]
             
             if self.cache:
                 self.cache_batch(batch, batch_payloads)
@@ -257,5 +257,9 @@ class XmlPipeline:
 
             db.upload(batch, batch_payloads)
 
+    @staticmethod
+    def process_payload(payload):
+        payload_res = payload.toPandas().to_dict(orient="records")[0]
+        return payload_res
         
 
