@@ -33,7 +33,7 @@ class KeywordPipeline(Pipeline):
         """
         stopwords = StopWordsCleaner().getStopWords()
         document_assembler = DocumentAssembler() \
-            .setInputCol("text") \
+            .setInputCol("FullText") \
             .setOutputCol("keyword_document")
         sentence_detector = SentenceDetector() \
             .setInputCols(["keyword_document"]) \
@@ -102,7 +102,7 @@ class EmbeddingsPipeline(Pipeline):
         """
         pretrained_config = config["pretrained_model"]
         document_assembler = DocumentAssembler() \
-            .setInputCol("text") \
+            .setInputCol("FullText") \
             .setOutputCol("embedding_document")
         tokenizer = Tokenizer() \
             .setInputCols("embedding_document") \
