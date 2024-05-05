@@ -34,8 +34,8 @@ class NoSQLDatabase:
         
         status_cnt = 0
         for payload in tqdm(payload, desc = "Uploading Batch..."):
-            upload_result = self.collection.insert_many(payload)
-        
+            pdb.set_trace() 
+            upload_result = self.collection.insert_one(payload)
             if upload_result.modified_count == len(payload):
                 status = 1
             else:
