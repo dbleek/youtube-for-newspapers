@@ -251,11 +251,11 @@ class XmlPipeline:
             
             if self.cache:
                 self.cache_batch(batch, batch_data)
-            
-            # cleanup
-            shutil.rmtree(self.tmp_dir)
 
             db.upload(batch, batch_data)
+
+            # cleanup
+            shutil.rmtree(self.tmp_dir)
 
     @staticmethod
     def process_payload(payload):
