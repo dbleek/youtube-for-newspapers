@@ -52,6 +52,7 @@ class XmlPipeline:
         self.ddfs_batches = []
         self.yake_pipeline = None
         self.doc2vec_pipeline = None
+        self.tmp_dir = None
     
     @classmethod
     def from_config(cls, config, args):
@@ -181,8 +182,8 @@ class XmlPipeline:
         ddfs = []
         for zip_file in batch:
             # extract zip file and load into distributed data frame
-            tmp_dir = self.extract_xml(zip_file)
-            files_to_process = os.listdir(tmp_dir)
+            self.tmp_dir = self.extract_xml(zip_file)
+            files_to_process = os.listdir(self.tmp_dir)
             
             for xml_file in tqdm(files_to_process[:30], desc="Processing XML documents..."):
                 try:
@@ -190,13 +191,7 @@ class XmlPipeline:
                     ddfs.append(processed_xml)
                 except:
                     logging.info(f"{xml_file} FAIL")
-            
-            # cleanup
-            shutil.rmtree(tmp_dir)
         
-        # reduce processed data into single dataframe for batch
-        #ddf_batch = reduce(DataFrame.unionAll, ddfs)
-
         return ddfs
 
     
@@ -249,12 +244,14 @@ class XmlPipeline:
             batch_data = self.run_batch(batch)
             self.ddfs_batches.extend(batch_data)
             
-            #if self.cache:
-            #    self.cache_batch(batch, batch_data)
-            
-            pdb.set_trace()
+            if self.cache:
+                self.cache_batch(batch, batch_data)
+           
             batch_payloads = [payload.toPandas().to_dict(orient="records") for payload in batch_data]
             
+            # cleanup
+            shutil.rmtree(self.tmp_dir)
+
             db.upload(batch, batch_payloads)
 
         
