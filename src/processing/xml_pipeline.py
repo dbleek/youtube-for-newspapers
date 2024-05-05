@@ -184,9 +184,13 @@ class XmlPipeline:
             tmp_dir = self.extract_xml(zip_file)
             files_to_process = os.listdir(tmp_dir)
             
-            for xml_file in tqdm(files_to_process, desc="Processing XML documents..."):
-                processed_xml = self.process_xml(xml_file)
-                ddfs.append(processed_xml)
+            for xml_file in tqdm(files_to_process[:30], desc="Processing XML documents..."):
+                try:
+                    processed_xml = self.process_xml(xml_file)
+                    ddfs.append(processed_xml)
+                    print(f"SUCCESS: {xml_file}")
+                except:
+                    print(f"FAIL: {xml_file}")
             
             # cleanup
             shututil.rmtree(tmp_dir)
