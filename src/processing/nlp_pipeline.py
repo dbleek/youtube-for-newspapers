@@ -90,7 +90,7 @@ class KeywordPipeline(Pipeline):
         
 class EmbeddingsPipeline(Pipeline):
     
-    def __init__(self, document_assembler=None, tokenizer=None, embeddings=embeddings, embeddings_finisher=embeddings_finisher):
+    def __init__(self, document_assembler=None, tokenizer=None, embeddings=None, embeddings_finisher=None):
         super(EmbeddingsPipeline, self).__init__()
         self.document_assembler = document_assembler
         self.tokenizer = tokenizer
