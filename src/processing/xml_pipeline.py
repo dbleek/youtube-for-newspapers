@@ -278,7 +278,7 @@ class XmlPipeline:
                 self.cache_batch(batch_id, batch_data)
                 logging.info(f"{batch_id} CACHED")
             
-            db.upload(batch_id, batch, batch_data)
+            db.upload(batch_id, batch_data)
             logging.info(f"{batch_id} UPLOADED")
 
             # cleanup

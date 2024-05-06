@@ -23,7 +23,7 @@ class NoSQLDatabase:
     def from_config(cls, config):
         config_conn = config["connection"]
         config_index = config["atlas_index"]
-        uri = f"mongodb+srv://{MONGODB_USER}:{MONGODB_PASS}@bigdatafinalproject.sl03s.mongodb.net/?retryWrites=true&w=majority&appName=BigDataFinalProject"
+        uri = f"mongodb+srv://{MONGODB_USER}:{MONGODB_PASS}@BigDataFinalProject.sl03s.mongodb.net/?retryWrites=true&w=majority&appName=BigDataFinalProject"
         cluster = MongoClient(host=[uri])
         db = cluster[config_conn["database"]]
         collection = db[config_conn["collection"]]
@@ -33,7 +33,7 @@ class NoSQLDatabase:
     def set_index(self):
         self.collection.create_search_index(model=self.index)
 
-    def upload(self, batch_id, batch, batch_data):
+    def upload(self, batch_id, batch_data):
         status_cnt = 0
         for payload in tqdm(batch_data, desc = f"Uploading processed XML documents for BATCH:{batch_id}"):
             # upload results 
