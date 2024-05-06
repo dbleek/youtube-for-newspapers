@@ -75,7 +75,7 @@ class NoSQLDatabase:
             {"$limit": self.k}
         ])
             
-        return data, ngrams
+        return data
 
     def query_embeddings(self, query, pipeline):
         processed_query = pipeline.execute_light_pipeline(query)
