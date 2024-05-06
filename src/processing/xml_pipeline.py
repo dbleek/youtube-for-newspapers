@@ -1,5 +1,3 @@
-import pdb
-
 import pickle
 import os 
 import uuid
@@ -183,12 +181,12 @@ class XmlPipeline:
         old_files = {}
         
         ddfs = []
-        pdb.set_trace()
+        
         for zip_file in batch:
             # extract zip file and load into distributed data frame
             self.tmp_dir = self.extract_xml(zip_file)
             files_in_tmp = os.listdir(self.tmp_dir)
-            files_to_process = set(files_in_tmp).difference(old_files)
+            files_to_process = sorted(list(set(files_in_tmp).difference(old_files)))
             old_files = set(files_in_tmp)
             for xml_file in tqdm(files_to_process[:5], desc="Processing XML documents..."):
                 try:
