@@ -183,6 +183,7 @@ class XmlPipeline:
         old_files = {}
         
         ddfs = []
+        pdb.set_trace()
         for zip_file in batch:
             # extract zip file and load into distributed data frame
             self.tmp_dir = self.extract_xml(zip_file)
