@@ -53,7 +53,6 @@ class XmlPipeline:
         
         # processing attrs
         self.spark = None
-        self.ddfs_batches = []
         self.yake_pipeline = None
         self.doc2vec_pipeline = None
         self.tmp_dir = None
@@ -221,7 +220,6 @@ class XmlPipeline:
             except:
                 logging.info(f"{batch_id} {xml_file} FAILED")
         
-        self.ddfs_batches.extend(ddfs)
         return ddfs
     
     
@@ -238,7 +236,8 @@ class XmlPipeline:
         data_dir = self.tmp_dir / "data"
         data_dir.mkdir(exist_ok=True, parents=True)
         
-        print(f"Caching processed XML documents for BATCH:{batch_id}")
+        print(f"Caching processed documents for BATCH:{batch_id}")
+        
         # cache processed data
         with open(data_dir / f"{batch_id}.pkl", "wb") as handler:
             pickle.dump(batch_data, handler, protocol=pickle.HIGHEST_PROTOCOL)
@@ -280,7 +279,7 @@ class XmlPipeline:
             
             db.upload(batch_id, batch_data)
             logging.info(f"{batch_id} UPLOADED")
-
+            
             # cleanup
             shutil.rmtree(self.tmp_dir)
             self.reset_spark()

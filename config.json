@@ -1,7 +1,7 @@
 {
     "processing_pipeline": {
-        "batchsize" : 5,
-        "samplesize": 100,
+        "batchsize" : 5000,
+        "samplesize": 100000,
         "random_state":42,
         "keywords" : {
             "min_ngrams": 1,

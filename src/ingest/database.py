@@ -1,7 +1,7 @@
-import pdb
-from tqdm import tqdm
 import logging
-import os        
+import os
+
+from tqdm import tqdm
 from zipfile import ZipFile
 from pymongo import MongoClient
 
@@ -35,7 +35,7 @@ class NoSQLDatabase:
 
     def upload(self, batch_id, batch_data):
         status_cnt = 0
-        for payload in tqdm(batch_data, desc = f"Uploading processed XML documents for BATCH:{batch_id}"):
+        for payload in tqdm(batch_data, desc = f"Uploading processed documents for BATCH:{batch_id}"):
             # upload results 
             upload_result = payload.write.format("com.mongodb.spark.sql.DefaultSource")\
                 .mode("append")\
