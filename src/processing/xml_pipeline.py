@@ -147,7 +147,7 @@ class XmlPipeline:
             zip_path = self.data_raw / zip_file
             with zipfile.ZipFile(zip_path, "r") as fzip:
                 for _, xml_file in item:
-                    fzip.extract(xml_file, path=tmp_dir)
+                    fzip.extract(xml_file, path=self.tmp_dir)
 
     def process_xml(self, xml_file): 
         """Load xml into spark dataframe.
