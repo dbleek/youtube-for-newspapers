@@ -188,7 +188,7 @@ class XmlPipeline:
             files_in_tmp = os.listdir(self.tmp_dir)
             files_to_process = sorted(list(set(files_in_tmp).difference(old_files)))
             old_files = set(files_in_tmp)
-            for xml_file in tqdm(files_to_process[:5], desc="Processing XML documents..."):
+            for xml_file in tqdm(files_to_process, desc="Processing XML documents..."):
                 try:
                     processed_xml = self.process_xml(xml_file)
                     ddfs.append(processed_xml)
