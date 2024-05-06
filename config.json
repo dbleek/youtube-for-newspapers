@@ -21,6 +21,7 @@
             "database": "bigdata",
             "collection":"newspapers"
         },
+        "k" : 20,
         "atlas_index" : {
             "definition": {
 		"mappings": {

@@ -11,12 +11,13 @@ MONGODB_PASS = os.environ.get("MONGODB_PASS")
 class NoSQLDatabase:    
     
     # Configure mongodbd
-    def __init__(self, cluster=None, db=None, collection=None, index = None, uri = None):
+    def __init__(self, cluster=None, db=None, collection=None, index = None, uri = None, k=None):
         self.cluster = cluster
         self.db = db
         self.collection = collection
         self.index = index
         self.uri = uri
+        self.k = k
     
     @classmethod
     def from_config(cls, config):
@@ -26,7 +27,8 @@ class NoSQLDatabase:
         cluster = MongoClient(host=[uri])
         db = cluster[config_conn["database"]]
         collection = db[config_conn["collection"]]
-        return cls(cluster=cluster, db=db, collection=collection, index = config_index, uri = uri)
+        k = config["k"]
+        return cls(cluster=cluster, db=db, collection=collection, index = config_index, uri = uri, k=k)
     
     def set_index(self):
         self.collection.create_search_index(model=self.index)
@@ -51,10 +53,29 @@ class NoSQLDatabase:
         
         # logging.info(f"{batch} BATCHSIZE={len(batch_payload)} STATUSCOUNT={status_cnt}")
 
-    def query_keyword(self, query, pipeline):
-        processed_query = pipeline.execute_light_pipeline(query)
-        # TODO: inject logic for keyword search
-        pass
+    def query_keyword(self, query, pipeline, spark):      
+        # process query
+        df = spark.createDataFrame([{"FullText": query}])
+        results = pipeline.fit(df).transform(df)
+        values = results.toPandas().to_dict()
+        ngrams = [v.asDict()["result"] for v in values["keywords"][0]] 
+        
+        # aggregate pipeline to find top-k articles based on input keywords
+        data = self.collection.aggregate([
+            {"$match": {"ObjectType": "Article"}}, # Filter only articles
+            {"$project":{"keywords.result": 1, "keywords.metadata.score": 1}},
+            {"$unwind": {"path": "$keywords", "preserveNullAndEmptyArrays": False}},
+            {"$match": {"keywords.result":  {"$in": ngrams}}},
+            {"$group": { "_id": "$_id", "keywords": {"$addToSet": "$keywords"}}},
+            {"$unwind": {"path": "$keywords", "preserveNullAndEmptyArrays": False}},
+            # TODO: Zero to large number
+            {"$addFields": {"keywords.reciprocal": {"$divide": [1, {"$convert": {"input":"$keywords.metadata.score", "to": "double", "onError": 10**7, "onNull": 10**7}}]}}},
+            {"$group": { "_id": "$_id", "score": {"$sum": "$keywords.reciprocal"},"keywords": {"$addToSet": "$keywords.result"}}},
+            {"$sort": {"score": -1}},
+            {"$limit": self.k}
+        ])
+            
+        return values
 
     def query_embeddings(self, query, pipeline):
         processed_query = pipeline.execute_light_pipeline(query)
