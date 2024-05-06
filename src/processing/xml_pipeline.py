@@ -137,8 +137,8 @@ class XmlPipeline:
             ddf (pyspark.DataFrame): Distributed dataframe object version of the xml document.
         """
         # setup tmp dir
-        tmp_dir = self.cache_dir / "tmp" / self.runtime
-        tmp_dir.mkdir(exist_ok=True, parents=True)
+        self.tmp_dir = self.cache_dir / "tmp" / self.runtime
+        self.tmp_dir.mkdir(exist_ok=True, parents=True)
 
         # perform zip file extraction
         get_zip_file = lambda x: x[0]
@@ -148,8 +148,6 @@ class XmlPipeline:
             with zipfile.ZipFile(zip_path, "r") as fzip:
                 for _, xml_file in item:
                     fzip.extract(xml_file, path=tmp_dir)
-        
-        return tmp_dir 
 
     def process_xml(self, xml_file): 
         """Load xml into spark dataframe.
@@ -165,7 +163,7 @@ class XmlPipeline:
         data = self.spark.read \
             .option('rootTag', 'Record')\
             .option('rowTag', 'Record')\
-            .format("xml").load(str(self.cache_dir / "tmp" / xml_file ))
+            .format("xml").load(str(self.tmp_dir / xml_file ))
                 
         # process keywords
         data_w_keywords = self.yake_pipeline.execute_pipeline(data)
@@ -213,7 +211,7 @@ class XmlPipeline:
     
     def run_batch(self, batch_id, batch):
         ddfs = []
-        self.tmp_dir = self.extract_xml(batch)
+        self.extract_xml(batch)
         for zip_file, xml_file in tqdm(batch, desc=f"Processing XML documents for BATCH:{batch_id}"):
             try:
                 processed_xml = self.process_xml(xml_file)
