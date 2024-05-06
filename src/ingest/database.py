@@ -58,22 +58,22 @@ class NoSQLDatabase:
         df = spark.createDataFrame([{"FullText": query}])
         results = pipeline.fit(df).transform(df)
         values = results.toPandas().to_dict()
-        # ngrams = [keyword["result"] for keyword in values["keywords"]]
+        ngrams = [v.asDict()["result"] for v in values["keywords"][0]] 
         
-        # # aggregate pipeline to find top-k articles based on input keywords
-        # data = self.collection.aggregate([
-        #     {"$match": {"ObjectType": "Article"}}, # Filter only articles
-        #     {"$project":{"keywords.result": 1, "keywords.metadata.score": 1}},
-        #     {"$unwind": {"path": "$keywords", "preserveNullAndEmptyArrays": False}},
-        #     {"$match": {"keywords.result":  {"$in": ngrams}}},
-        #     {"$group": { "_id": "$_id", "keywords": {"$addToSet": "$keywords"}}},
-        #     {"$unwind": {"path": "$keywords", "preserveNullAndEmptyArrays": False}},
-        #     # TODO: Zero to large number
-        #     {"$addFields": {"keywords.reciprocal": {"$divide": [1, {"$convert": {"input":"$keywords.metadata.score", "to": "double", "onError": 10**7, "onNull": 10**7}}]}}},
-        #     {"$group": { "_id": "$_id", "score": {"$sum": "$keywords.reciprocal"},"keywords": {"$addToSet": "$keywords.result"}}},
-        #     {"$sort": {"score": -1}},
-        #     {"$limit": self.k}
-        # ])
+        # aggregate pipeline to find top-k articles based on input keywords
+        data = self.collection.aggregate([
+            {"$match": {"ObjectType": "Article"}}, # Filter only articles
+            {"$project":{"keywords.result": 1, "keywords.metadata.score": 1}},
+            {"$unwind": {"path": "$keywords", "preserveNullAndEmptyArrays": False}},
+            {"$match": {"keywords.result":  {"$in": ngrams}}},
+            {"$group": { "_id": "$_id", "keywords": {"$addToSet": "$keywords"}}},
+            {"$unwind": {"path": "$keywords", "preserveNullAndEmptyArrays": False}},
+            # TODO: Zero to large number
+            {"$addFields": {"keywords.reciprocal": {"$divide": [1, {"$convert": {"input":"$keywords.metadata.score", "to": "double", "onError": 10**7, "onNull": 10**7}}]}}},
+            {"$group": { "_id": "$_id", "score": {"$sum": "$keywords.reciprocal"},"keywords": {"$addToSet": "$keywords.result"}}},
+            {"$sort": {"score": -1}},
+            {"$limit": self.k}
+        ])
             
         return values
 
