@@ -76,7 +76,7 @@ def run(args):
     pipe.batch_upload(db)
     
     # set search index
-    db.set_index()
+    # db.set_index()
     
 def main():
     args = create_arg_parser().parse_args()
