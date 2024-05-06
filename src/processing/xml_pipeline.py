@@ -179,13 +179,16 @@ class XmlPipeline:
     def run_batch(self, batch):
         """Run batch job for xml pipeline.
         """
+
+        old_files = {}
         
         ddfs = []
         for zip_file in batch:
             # extract zip file and load into distributed data frame
             self.tmp_dir = self.extract_xml(zip_file)
-            files_to_process = os.listdir(self.tmp_dir)
-            
+            files_in_tmp = os.listdir(self.tmp_dir)
+            files_to_process = set(files_in_tmp).difference(old_files)
+            old_files = set(files_in_tmp)
             for xml_file in tqdm(files_to_process[:5], desc="Processing XML documents..."):
                 try:
                     processed_xml = self.process_xml(xml_file)
