@@ -33,25 +33,16 @@ class NoSQLDatabase:
     def set_index(self):
         self.collection.create_search_index(model=self.index)
 
-    def upload(self, batch, batch_payload):
+    def upload(self, batch_id, batch, batch_data):
         status_cnt = 0
-        for payload in tqdm(batch_payload, desc = "Uploading Batch..."):
+        for payload in tqdm(batch_data, desc = f"Uploading processed XML documents for BATCH:{batch_id}"):
             # upload results 
             upload_result = payload.write.format("com.mongodb.spark.sql.DefaultSource")\
                 .mode("append")\
                 .option("database", "bigdata") \
                 .option("collection", "newspapers")\
                 .option("uri", self.uri)\
-                .save() 
-            
-            #upload_result = self.collection.insert_one(payload)
-        #     if upload_result.modified_count == len(payload):
-        #         status = 1
-        #     else:
-        #         status = 0
-        #     status_cnt += status 
-        
-        # logging.info(f"{batch} BATCHSIZE={len(batch_payload)} STATUSCOUNT={status_cnt}")
+                .save()
 
     def query_keyword(self, query, pipeline, spark):      
         # process query

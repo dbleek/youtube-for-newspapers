@@ -1,6 +1,8 @@
 {
     "processing_pipeline": {
-	"batchsize" : 4,
+        "batchsize" : 5000,
+        "samplesize": 100000,
+        "random_state":42,
         "keywords" : {
             "min_ngrams": 1,
             "max_ngrams": 3,
@@ -24,20 +26,20 @@
         "k" : 20,
         "atlas_index" : {
             "definition": {
-		"mappings": {
+                "mappings": {
                     "fields": {
                     	"finished_embeddings": [{
                         	"dimensions": 300,
                         	"similarity": "euclidean",
                         	"type": "knnVector"
                         },
-			{
-      			"type": "filter",
-      			"path": "ObjectType"
-    			}]
+            			{
+                  			"type": "filter",
+                  			"path": "ObjectType"
+                        }]
                     }
             	}
-	    },
+            },
             "name": "doc2vec_index"
         }
     }

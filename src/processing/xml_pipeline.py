@@ -3,16 +3,20 @@ import os
 import uuid
 import shutil
 import logging
+import random
+import zipfile
 
+from itertools import groupby
 from tqdm import tqdm
-from zipfile import ZipFile
 from pathlib import Path
 from functools import reduce
 
 import pyspark
 from pyspark.sql import DataFrame
+
 import sparknlp
 from processing.nlp_pipeline import KeywordPipeline, EmbeddingsPipeline
+
 
 class XmlPipeline:
     """A class representing an XML pipeline for performing batch uploads on Xml Documents.
@@ -30,22 +34,23 @@ class XmlPipeline:
         ddfs_batches (list of pysark.DataFrame):
     """
 
-    def __init__(self, batchsize = None, doc2vec_config=None, keyword_config=None, data_raw=None, cache=None, cache_dir=None, test=None):
+    def __init__(self, batchsize = None, samplesize = None, random_state =None, doc2vec_config=None, keyword_config=None, data_raw=None, cache=None, cache_dir=None, test=None):
         """
         Initialize the XmlPipeline object.
 
         Args:
         """
         # init attrs
+        self.random_state = random_state
         self.batchsize = batchsize
+        self.samplesize = samplesize
         self.doc2vec_config = doc2vec_config
         self.keyword_config = keyword_config
         self.data_raw = data_raw
         self.cache = cache
         self.cache_dir = cache_dir
         self.test = test
-        self.zip2batch = {}
-
+        
         # processing attrs
         self.spark = None
         self.ddfs_batches = []
@@ -65,19 +70,21 @@ class XmlPipeline:
             cls (XmlPipeline): Configured XmlPipeline object.
         """
         # config parameters
+        random_state = config["random_state"]
         batchsize = config["batchsize"]
+        samplesize = config["samplesize"]
         keyword_config = config["keywords"]
         doc2vec_config = config["doc2vec"]
-
+        
         # args parameters
         data_raw = Path(args.data_raw)
         cache = args.cache
         cache_dir = Path(args.cache_dir)
         test = args.test
         
-        return cls(batchsize = batchsize, doc2vec_config=doc2vec_config, keyword_config=keyword_config, data_raw=data_raw, cache = cache, cache_dir = cache_dir, test = test)
+        return cls(random_state = random_state, batchsize = batchsize, samplesize = samplesize, doc2vec_config=doc2vec_config, keyword_config=keyword_config, data_raw=data_raw, cache = cache, cache_dir = cache_dir, test = test)
     
-    def setup_spark(self):
+    def reset_spark(self):
         """Setup Spark context by setting config and creating context.
     
         Args:
@@ -95,8 +102,32 @@ class XmlPipeline:
         # create Spark context
         sc = pyspark.SparkContext(conf=conf)
         self.spark = pyspark.SQLContext.getOrCreate(sc)
-
-    def extract_xml(self, zip_file):
+    
+    def sample_zip_files(self, list_of_zips):
+        """
+        Args:
+            list_of_zips
+            samplesize
+        """
+        # calc sample size per zipfile
+        nzips = len(list_of_zips)
+        samplesize_per_zip = self.samplesize // nzips
+        samplesize_rem = self.samplesize % nzips
+        
+        # iterate over zip files and sample xml
+        xml_to_process = []
+        for ii, zip_file in tqdm(enumerate(list_of_zips), total = nzips, desc="Sampling Zip Files"):
+            zip_path = self.data_raw / zip_file
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                if ii == len(list_of_zips):
+                    samplesize_per_zip += samplesize_rem
+                list_of_xml = zf.namelist()
+                xml_sample = random.sample(list_of_xml, min(samplesize_per_zip, len(list_of_xml)))
+                xml_to_process.extend([(zip_file, xml_file) for xml_file in xml_sample])
+        
+        return xml_to_process
+    
+    def extract_xml(self, batch):
         """Load xml into spark dataframe.
 
         Args:
@@ -105,16 +136,19 @@ class XmlPipeline:
         Returns:
             ddf (pyspark.DataFrame): Distributed dataframe object version of the xml document.
         """
-        
-        # setup extraction
-        zip_path = self.data_raw / zip_file
+        # setup tmp dir
         tmp_dir = self.cache_dir / "tmp"
         tmp_dir.mkdir(exist_ok=True, parents=True)
-        
-        # extract zip file
-        with ZipFile(zip_path, "r") as fzip:
-            fzip.extractall(tmp_dir)
 
+        # perform zip file extraction
+        get_zip_file = lambda x: x[0]
+        sort_batch = sorted(batch, key=get_zip_file)
+        for zip_file, item in groupby(batch, get_zip_file):
+            zip_path = self.data_raw / zip_file
+            with zipfile.ZipFile(zip_path, "r") as fzip:
+                for _, xml_file in item:
+                    fzip.extract(xml_file, path=tmp_dir)
+        
         return tmp_dir 
 
     def process_xml(self, xml_file): 
@@ -138,67 +172,60 @@ class XmlPipeline:
             
         # process embeddings
         data_w_embeddings = self.doc2vec_pipeline.execute_pipeline(data_w_keywords)
-            
-        # append data
-        return data_w_embeddings
         
-      
-
+        return data_w_embeddings
+    
+    def setup_logging(self):
+        log_path = self.cache_dir / "logs" / "batch.log"
+        log_path.parent.mkdir(exist_ok=True, parents=True)
+        logging.basicConfig(
+            filename= log_path,
+            level=logging.INFO,
+            format="%(asctime)s %(levelname)s %(message)s",
+            datefmt = "%Y-%m-%d %H:%M:%S"
+        )
+    
     def setup_batch_jobs(self):
-        """Method to setup batch jobs. Supports test and initializes logging. Splits files to upload into batches.
-
+        """
+        Create batchjobs from 
+                                      
         Args:
             None.
 
         Returns:
-            batches (list of str): List of zip file names separated into batches.
+            batches (list of tuples): tuple of zipfile name and xml file name.
         """
-        # setup batches
+        random.seed(self.random_state)
         list_of_zips = os.listdir(self.data_raw)
-        batches = [list_of_zips[i: i + self.batchsize] for i in range(0, len(list_of_zips), self.batchsize)]
-
+        xml_to_process = self.sample_zip_files(list_of_zips)
+        xml_batches = { uuid.uuid1(): xml_to_process[i: i + self.batchsize] for i in range(0, len(xml_to_process), self.batchsize)}
+        
         # setup test support
         if self.test:
-            batches = [batches[0]]
+            batch_id = sorted(list(xml_batches.keys()))[0]
+            xml_batches = {batch_id: xml_batches[batch_id]}
 
         # setup logging
-        if self.cache:
-            log_path = self.cache_dir / "logs" / "batch.log"
-            log_path.parent.mkdir(exist_ok=True, parents=True)
-            logging.basicConfig(
-                filename= log_path,
-                level=logging.INFO,
-                format="%(asctime)s %(levelname)s %(message)s",
-                datefmt = "%Y-%m-%d %H:%M:%S"
-            )
-        return batches
-
-                                         
-    def run_batch(self, batch):
-        """Run batch job for xml pipeline.
-        """
-
-        old_files = {}
+        self.setup_logging()
         
-        ddfs = []
-        
-        for zip_file in batch:
-            # extract zip file and load into distributed data frame
-            self.tmp_dir = self.extract_xml(zip_file)
-            files_in_tmp = os.listdir(self.tmp_dir)
-            files_to_process = sorted(list(set(files_in_tmp).difference(old_files)))
-            old_files = set(files_in_tmp)
-            for xml_file in tqdm(files_to_process, desc="Processing XML documents..."):
-                try:
-                    processed_xml = self.process_xml(xml_file)
-                    ddfs.append(processed_xml)
-                except:
-                    logging.info(f"{xml_file} FAIL")
-        
-        return ddfs
-
+        return xml_batches
     
-    def cache_batch(self, batch, batch_data):
+    
+    def run_batch(self, batch_id, batch):
+        ddfs = []
+        self.tmp_dir = self.extract_xml(batch)
+        for zip_file, xml_file in tqdm(batch, desc=f"Processing XML documents for BATCH:{batch_id}"):
+            try:
+                processed_xml = self.process_xml(xml_file)
+                ddfs.append(processed_xml)
+            except:
+                logging.info(f"{batch_id} {xml_file} FAILED")
+        
+        self.ddfs_batches.extend(ddfs)
+        return ddfs
+    
+    
+    def cache_batch(self, batch_id, batch_data):
         """Cache batch job.
 
         Args:
@@ -208,18 +235,15 @@ class XmlPipeline:
         Returns:
             None.
         """
-        # log processed data
-        batch_id = uuid.uuid1()
+        data_dir = self.tmp_dir / "data"
+        data_dir.mkdir(exist_ok=True, parents=True)
         
-        for zip_file in batch:
-            self.zip2batch[zip_file] = batch_id
-            logging.info(f"{batch_id} {zip_file}")
-
-        print("Caching Batch...")
+        print(f"Caching processed XML documents for BATCH:{batch_id}")
+        # cache processed data
+        with open(data_dir / f"{batch_id}.pkl", "wb") as handler:
+            pickle.dump(batch_data, handler, protocol=pickle.HIGHEST_PROTOCOL)
+           
         
-        # cache data
-        # with open(f'{batch_id}.pickle', 'wb') as handle:
-        #     pickle.dump(batch_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
     def setup_nlp_pipelines(self):
         spark = sparknlp.start()
@@ -241,27 +265,32 @@ class XmlPipeline:
             None.
         """
         batches = self.setup_batch_jobs()
-        self.setup_spark()
+        self.reset_spark()
         self.setup_nlp_pipelines()
-
+        
         # create batch jobs
-        for batch in batches:
-            batch_data = self.run_batch(batch)
-            self.ddfs_batches.extend(batch_data)
-            
-            # batch_payloads = [payload.toPandas().to_dict(orient="records") for payload in batch_data]
+        for batch_id, batch in batches.items():
+            # run & upload batch
+            batch_data = self.run_batch(batch_id, batch)
+            logging.info(f"{batch_id} PROCESSED")
             
             if self.cache:
-                self.cache_batch(batch, batch_data)
-
-            db.upload(batch, batch_data)
+                self.cache_batch(batch_id, batch_data)
+                logging.info(f"{batch_id} CACHED")
+            
+            db.upload(batch_id, batch, batch_data)
+            logging.info(f"{batch_id} UPLOADED")
 
             # cleanup
             shutil.rmtree(self.tmp_dir)
+            self.reset_spark()
 
     @staticmethod
     def process_payload(payload):
         payload_res = payload.toPandas().to_dict(orient="records")[0]
         return payload_res
+
+    
+
         
 
