@@ -58,6 +58,7 @@ class NoSQLDatabase:
         df = spark.createDataFrame([{"FullText": query}])
         results = pipeline.fit(df).transform(df)
         values = results.toPandas().to_dict()
+        breakpoint()
         ngrams = [keyword["result"] for keyword in values["keywords"]]
         
         # aggregate pipeline to find top-k articles based on input keywords
