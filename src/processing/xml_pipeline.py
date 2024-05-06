@@ -34,13 +34,14 @@ class XmlPipeline:
         ddfs_batches (list of pysark.DataFrame):
     """
 
-    def __init__(self, batchsize = None, samplesize = None, random_state =None, doc2vec_config=None, keyword_config=None, data_raw=None, cache=None, cache_dir=None, test=None):
+    def __init__(self, batchsize = None, samplesize = None, random_state =None, doc2vec_config=None, keyword_config=None, data_raw=None, cache=None, cache_dir=None, test=None, runtime=None):
         """
         Initialize the XmlPipeline object.
 
         Args:
         """
         # init attrs
+        self.runtime = runtime
         self.random_state = random_state
         self.batchsize = batchsize
         self.samplesize = samplesize
@@ -58,7 +59,7 @@ class XmlPipeline:
         self.tmp_dir = None
     
     @classmethod
-    def from_config(cls, config, args):
+    def from_config(cls, config, args, runtime):
         """
         Instantiate XmlPipeline object from the config. Load in data both from the configuration file and arg paraser.
 
@@ -81,7 +82,7 @@ class XmlPipeline:
         cache_dir = Path(args.cache_dir)
         test = args.test
         
-        return cls(random_state = random_state, batchsize = batchsize, samplesize = samplesize, doc2vec_config=doc2vec_config, keyword_config=keyword_config, data_raw=data_raw, cache = cache, cache_dir = cache_dir, test = test)
+        return cls(random_state = random_state, batchsize = batchsize, samplesize = samplesize, doc2vec_config=doc2vec_config, keyword_config=keyword_config, data_raw=data_raw, cache = cache, cache_dir = cache_dir, test = test, runtime=runtime)
     
     def setup_spark(self):
         """Setup Spark context by setting config and creating context.
@@ -136,7 +137,7 @@ class XmlPipeline:
             ddf (pyspark.DataFrame): Distributed dataframe object version of the xml document.
         """
         # setup tmp dir
-        tmp_dir = self.cache_dir / "tmp"
+        tmp_dir = self.cache_dir / "tmp" / self.runtime
         tmp_dir.mkdir(exist_ok=True, parents=True)
 
         # perform zip file extraction
@@ -233,7 +234,7 @@ class XmlPipeline:
         Returns:
             None.
         """
-        data_dir = self.tmp_dir / "data"
+        data_dir = self.cache_dir / "data"
         data_dir.mkdir(exist_ok=True, parents=True)
         
         print(f"Caching processed documents for BATCH:{batch_id}")

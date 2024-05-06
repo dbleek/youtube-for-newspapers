@@ -3,6 +3,8 @@ import os
 import json
 import getpass
 import pyspark
+
+from datetime import datetime
 from pathlib import Path
 from argparse import ArgumentParser
 
@@ -63,6 +65,8 @@ def create_arg_parser():
 def run(args):
     """
     """
+    runtime = datetime.now().strftime("%Y%m%d_%H%M%S")
+
     # load configs
     config = read_config(args.config_path)
     database_config = config["nosql_database"]
@@ -72,7 +76,7 @@ def run(args):
     db = database.NoSQLDatabase.from_config(database_config)
     
     # run processing batch job
-    pipe = xml_pipeline.XmlPipeline.from_config(processing_config, args)
+    pipe = xml_pipeline.XmlPipeline.from_config(processing_config, args, runtime)
     pipe.batch_upload(db)
     
     # set search index
