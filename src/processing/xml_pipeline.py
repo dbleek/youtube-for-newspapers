@@ -83,7 +83,7 @@ class XmlPipeline:
         
         return cls(random_state = random_state, batchsize = batchsize, samplesize = samplesize, doc2vec_config=doc2vec_config, keyword_config=keyword_config, data_raw=data_raw, cache = cache, cache_dir = cache_dir, test = test)
     
-    def reset_spark(self):
+    def setup_spark(self):
         """Setup Spark context by setting config and creating context.
     
         Args:
@@ -264,7 +264,7 @@ class XmlPipeline:
             None.
         """
         batches = self.setup_batch_jobs()
-        self.reset_spark()
+        self.setup_spark()
         self.setup_nlp_pipelines()
         
         # create batch jobs
@@ -282,7 +282,7 @@ class XmlPipeline:
             
             # cleanup
             shutil.rmtree(self.tmp_dir)
-            self.reset_spark()
+            self.spark.clearCache()
 
     @staticmethod
     def process_payload(payload):
