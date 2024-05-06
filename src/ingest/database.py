@@ -53,7 +53,7 @@ class NoSQLDatabase:
         
         # logging.info(f"{batch} BATCHSIZE={len(batch_payload)} STATUSCOUNT={status_cnt}")
 
-    def query_keyword(self, query, pipeline):      
+    def query_keyword(self, query, pipeline, spark):      
         # process query
         df = spark.createDataFrame([{"FullText": query}])
         results = pipeline.fit(df).transform(df)
