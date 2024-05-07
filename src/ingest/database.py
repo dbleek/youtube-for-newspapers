@@ -109,7 +109,7 @@ class NoSQLDatabase:
         ngrams = [v.asDict()["result"] for v in values["keywords"][0]]
         vector = em_pipeline.fit(df).transform(df).toPandas().to_dict()["finished_embeddings"][0][0]
 
-        hybrid_results = self.collection..aggregate([
+        hybrid_results = self.collection.aggregate([
             {
                 "$vectorSearch": {
                     "index": "doc2vec_index",
