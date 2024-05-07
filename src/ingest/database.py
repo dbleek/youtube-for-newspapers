@@ -75,7 +75,7 @@ class NoSQLDatabase:
         df = spark.createDataFrame([{"FullText": query}])
         results = pipeline.fit(df).transform(df)
         values = results.toPandas().to_dict()
-        vector = [v for v in values["finished_embeddings"][0]] 
+        vector = values["finished_embeddings"][0][0]
 
         # aggregate pipeline for vector search
         data = self.collection.aggregate([
