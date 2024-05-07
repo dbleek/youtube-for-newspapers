@@ -11,13 +11,14 @@ MONGODB_PASS = os.environ.get("MONGODB_PASS")
 class NoSQLDatabase:    
     
     # Configure mongodbd
-    def __init__(self, cluster=None, db=None, collection=None, index = None, uri = None, k=None):
+    def __init__(self, cluster=None, db=None, collection=None, index = None, uri = None, k=None, candidates=None):
         self.cluster = cluster
         self.db = db
         self.collection = collection
         self.index = index
         self.uri = uri
         self.k = k
+        self.candidates = candidates
     
     @classmethod
     def from_config(cls, config):
@@ -28,7 +29,8 @@ class NoSQLDatabase:
         db = cluster[config_conn["database"]]
         collection = db[config_conn["collection"]]
         k = config["k"]
-        return cls(cluster=cluster, db=db, collection=collection, index = config_index, uri = uri, k=k)
+        candidates = config["candidates"]
+        return cls(cluster=cluster, db=db, collection=collection, index = config_index, uri = uri, k=k, candidates=candidates)
     
     def set_index(self):
         self.collection.create_search_index(model=self.index)
@@ -68,10 +70,29 @@ class NoSQLDatabase:
             
         return data
 
-    def query_embeddings(self, query, pipeline):
-        processed_query = pipeline.execute_light_pipeline(query)
-        # TODO: insert logic for embedding search
-        pass
+    def query_embeddings(self, query, pipeline, spark):
+        # process query
+        df = spark.createDataFrame([{"FullText": query}])
+        results = pipeline.fit(df).transform(df)
+        values = results.toPandas().to_dict()
+        vector = [v for v in values["finished_embeddings"][0]] 
+
+        # aggregate pipeline for vector search
+        data = self.collection.aggregate([
+                            {
+                            "$vectorSearch": {
+                                "index": "doc2vec_index",
+                                "path": "finished_embeddings",
+                                "queryVector": vector,
+                                "numCandidates": self.candidates,
+                                "limit": self.k,
+    #                           "filter": {<filter-specification>}
+                                }
+                            }
+        ])
+
+        return data
+
 
     def query_hybrid(self, query, pipeline):
         # TODO: insert logic for hybrid search
