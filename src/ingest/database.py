@@ -104,6 +104,11 @@ class NoSQLDatabase:
         #embedding_results = self.query_embeddings(query, pipeline)
         #hybrid_results = self.rrf(keyword_results, embedding_results)
 
+        df = spark.createDataFrame([{"FullText": query}])
+        values = kw_pipeline.fit(df).transform(df).toPandas().to_dict()
+        ngrams = [v.asDict()["result"] for v in values["keywords"][0]]
+        vector = em_pipeline.fit(df).transform(df).toPandas().to_dict()["finished_embeddings"][0][0]
+
         hybrid_results = self.collection..aggregate([
             {
                 "$vectorSearch": {
@@ -125,7 +130,7 @@ class NoSQLDatabase:
                         {"$match": {"ObjectType": "Article"}}, # Filter only articles
                         {"$project":{"keywords.result": 1, "keywords.metadata.score": 1, "RecordID": 1}},
                         {"$unwind": {"path": "$keywords", "preserveNullAndEmptyArrays": False}},
-                        {"$match": {"keywords.result":  {"$in": query}}},
+                        {"$match": {"keywords.result":  {"$in": ngrams}}},
                         {"$group": { "_id": "$_id", "keywords": {"$addToSet": "$keywords"}, "recordID": {"$first": "$RecordID"}}},
                         {"$unwind": {"path": "$keywords", "preserveNullAndEmptyArrays": False}},
                         # TODO: Zero to large number
