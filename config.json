@@ -25,6 +25,8 @@
         },
         "k" : 5,
         "candidates" : 100,
+        "vector_penalty": 1,
+        "keyword_penalty": 1,
         "atlas_index" : {
             "definition": {
                 "mappings": {

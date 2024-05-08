@@ -11,7 +11,7 @@ MONGODB_PASS = os.environ.get("MONGODB_PASS")
 class NoSQLDatabase:    
     
     # Configure mongodbd
-    def __init__(self, cluster=None, db=None, collection=None, index = None, uri = None, k=None, candidates=None):
+    def __init__(self, cluster=None, db=None, collection=None, index = None, uri = None, k=None, candidates=None, vector_penalty=None, keyword_penalty=None):
         self.cluster = cluster
         self.db = db
         self.collection = collection
@@ -19,6 +19,8 @@ class NoSQLDatabase:
         self.uri = uri
         self.k = k
         self.candidates = candidates
+        self.vector_penalty = vector_penalty
+        self.keyword_penalty = keyword_penalty
     
     @classmethod
     def from_config(cls, config):
@@ -30,7 +32,9 @@ class NoSQLDatabase:
         collection = db[config_conn["collection"]]
         k = config["k"]
         candidates = config["candidates"]
-        return cls(cluster=cluster, db=db, collection=collection, index = config_index, uri = uri, k=k, candidates=candidates)
+        vector_penalty = config["vector_penalty"]
+        keyword_penalty = config["keyword_penalty"]
+        return cls(cluster=cluster, db=db, collection=collection, index = config_index, uri = uri, k=k, candidates=candidates, vector_penalty=vector_penalty, keyword_penalty=keyword_penalty)
     
     def set_index(self):
         self.collection.create_search_index(model=self.index)
@@ -79,26 +83,91 @@ class NoSQLDatabase:
 
         # aggregate pipeline for vector search
         data = self.collection.aggregate([
-                            {
-                            "$vectorSearch": {
-                                "index": "doc2vec_index",
-                                "path": "finished_embeddings",
-                                "queryVector": vector,
-                                "numCandidates": self.candidates,
-                                "limit": self.k,
-    #                           "filter": {<filter-specification>}
-                                }
-                            }
+            {
+                "$vectorSearch": {
+                    "index": "doc2vec_index",
+                    "path": "finished_embeddings",
+                    "queryVector": vector,
+                    "numCandidates": self.candidates,
+                    "limit": self.k,
+                    "filter": { "ObjectType": "Article" }
+                }
+            }
         ])
 
         return data
 
+    def query_hybrid(self, query, kw_pipeline, em_pipeline, spark):
+        df = spark.createDataFrame([{"FullText": query}])
+        values = kw_pipeline.fit(df).transform(df).toPandas().to_dict()
+        ngrams = [v.asDict()["result"] for v in values["keywords"][0]]
+        vector = em_pipeline.fit(df).transform(df).toPandas().to_dict()["finished_embeddings"][0][0]
 
-    def query_hybrid(self, query, pipeline):
-        # TODO: insert logic for hybrid search
-        keyword_results = self.query_keyword(query, pipeline)
-        embedding_results = self.query_embeddings(query, pipeline)
-        hybrid_results = self.rrf(keyword_results, embedding_results)
+        hybrid_results = self.collection.aggregate([
+            {
+                "$vectorSearch": {
+                    "index": "doc2vec_index",
+                    "path": "finished_embeddings",
+                    "filter": { "ObjectType": "Article" },
+                    "queryVector": vector,
+                    "numCandidates": self.candidates,
+                    "limit": self.k
+                }
+            },
+            {"$group": {"_id": 0, "docs": {"$push": "$$ROOT"}}}, 
+            {"$unwind": {"path": "$docs", "includeArrayIndex": "rank"}}, 
+            {"$addFields": {"vs_score": {"$divide": [1.0, {"$add": ["$rank", self.vector_penalty, 1]}]}}}, 
+            {"$project": {"vs_score": 1, "_id": "$docs._id","recordID": "$docs.RecordID"}},     
+            {
+                "$unionWith": {
+                    "coll": "newspapers",
+                    "pipeline": [
+                        {
+                            "$search": {
+                                "index": "keyword_search",
+                                "phrase": {
+                                    "query": ngrams,
+                                    "path": "keywords.result"
+                                }
+                            }
+                        },
+                        {"$limit": self.k},
+                        {"$group": {"_id": 0, "docs": {"$push": "$$ROOT"}}}, 
+                        {"$unwind": {"path": "$docs", "includeArrayIndex": "rank"}}, 
+                        {"$addFields": {"kw_score": {"$divide": [1.0, {"$add": ["$rank", self.keyword_penalty, 1]}]}}},
+                        {"$project": {"kw_score": 1, "_id": "$docs._id", "recordID": "$docs.RecordID"}}
+                    ]
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$_id",
+                    "recordID": {"$first": "$recordID"},
+                    "vs_score": {"$max": "$vs_score"},
+                    "kw_score": {"$max": "$kw_score"}
+                }
+            },
+            {
+                "$project": {
+                  "_id": 1,
+                  "recordID": 1,
+                  "vs_score": {"$ifNull": ["$vs_score", 0]},
+                  "kw_score": {"$ifNull": ["$kw_score", 0]}
+                }
+            },
+            {
+                "$project": {
+                    "score": {"$add": ["$kw_score", "$vs_score"]},
+                    "_id": 1,
+                    "recordID": 1,
+                    "vs_score": 1,
+                    "kw_score": 1
+                }
+            },
+          {"$sort": {"score": -1}},
+          {"$limit": self.k}
+        ])
+        
         return hybrid_results
 
     def rrf(self, result_set1, result_set2):
