@@ -97,7 +97,6 @@ class NoSQLDatabase:
 
         return data
 
-
     def query_hybrid(self, query, kw_pipeline, em_pipeline, spark):
         df = spark.createDataFrame([{"FullText": query}])
         values = kw_pipeline.fit(df).transform(df).toPandas().to_dict()
@@ -167,7 +166,6 @@ class NoSQLDatabase:
             },
           {"$sort": {"score": -1}},
           {"$limit": self.k}
-
         ])
         
         return hybrid_results
