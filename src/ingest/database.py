@@ -108,7 +108,7 @@ class NoSQLDatabase:
                 "$vectorSearch": {
                     "index": "doc2vec_index",
                     "path": "finished_embeddings",
-                    "filter": { "ObjectType": "Article" }
+                    "filter": { "ObjectType": "Article" },
                     "queryVector": vector,
                     "numCandidates": self.candidates,
                     "limit": self.k
