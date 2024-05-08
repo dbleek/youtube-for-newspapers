@@ -83,27 +83,22 @@ class NoSQLDatabase:
 
         # aggregate pipeline for vector search
         data = self.collection.aggregate([
-                            {
-                            "$vectorSearch": {
-                                "index": "doc2vec_index",
-                                "path": "finished_embeddings",
-                                "queryVector": vector,
-                                "numCandidates": self.candidates,
-                                "limit": self.k,
-    #                           "filter": {<filter-specification>}
-                                }
-                            }
+            {
+                "$vectorSearch": {
+                    "index": "doc2vec_index",
+                    "path": "finished_embeddings",
+                    "queryVector": vector,
+                    "numCandidates": self.candidates,
+                    "limit": self.k,
+                    "filter": { "ObjectType": "Article" }
+                }
+            }
         ])
 
         return data
 
 
     def query_hybrid(self, query, kw_pipeline, em_pipeline, spark):
-        # TODO: insert logic for hybrid search
-        #keyword_results = self.query_keyword(query, pipeline)
-        #embedding_results = self.query_embeddings(query, pipeline)
-        #hybrid_results = self.rrf(keyword_results, embedding_results)
-
         df = spark.createDataFrame([{"FullText": query}])
         values = kw_pipeline.fit(df).transform(df).toPandas().to_dict()
         ngrams = [v.asDict()["result"] for v in values["keywords"][0]]
@@ -114,33 +109,35 @@ class NoSQLDatabase:
                 "$vectorSearch": {
                     "index": "doc2vec_index",
                     "path": "finished_embeddings",
+                    "filter": { "ObjectType": "Article" }
                     "queryVector": vector,
-                    "numCandidates": 100,
+                    "numCandidates": self.candidates,
                     "limit": self.k
                 }
             },
             {"$group": {"_id": 0, "docs": {"$push": "$$ROOT"}}}, 
             {"$unwind": {"path": "$docs", "includeArrayIndex": "rank"}}, 
             {"$addFields": {"vs_score": {"$divide": [1.0, {"$add": ["$rank", self.vector_penalty, 1]}]}}}, 
-            {"$project": {"vs_score": 1, "_id": "$docs._id","recordID": "$docs.RecordID"}},    
+            {"$project": {"vs_score": 1, "_id": "$docs._id","recordID": "$docs.RecordID"}},     
             {
                 "$unionWith": {
                     "coll": "newspapers",
                     "pipeline": [
-                        {"$match": {"ObjectType": "Article"}}, # Filter only articles
-                        {"$project":{"keywords.result": 1, "keywords.metadata.score": 1, "RecordID": 1}},
-                        {"$unwind": {"path": "$keywords", "preserveNullAndEmptyArrays": False}},
-                        {"$match": {"keywords.result":  {"$in": ngrams}}},
-                        {"$group": { "_id": "$_id", "keywords": {"$addToSet": "$keywords"}, "recordID": {"$first": "$RecordID"}}},
-                        {"$unwind": {"path": "$keywords", "preserveNullAndEmptyArrays": False}},
-                        # TODO: Zero to large number
-                        {"$addFields": {"keywords.reciprocal": {"$divide": [1, {"$convert": {"input":"$keywords.metadata.score", "to":"double", "onError": 10**7, "onNull": 10**7}}]}}},
-                        {"$group": { "_id": "$_id", "score": {"$sum": "$keywords.reciprocal"}, "recordID": {"$first": "$recordID"}}},
-                        {"$sort": {"score": -1}},
+                        {
+                            "$search": {
+                                "index": "keyword_search",
+                                "phrase": {
+                                    "query": ngrams,
+                                    "path": "keywords.result"
+                                }
+                            }
+                        },
                         {"$limit": self.k},
-                        {"$addFields": {"kw_score": {"$divide": [1.0, {"$add": ["$score", self.keyword_penalty, 1]}]}}},
-                        {"$project": {"kw_score": 1,"_id": 1, "recordID": 1}}
-                      ]
+                        {"$group": {"_id": 0, "docs": {"$push": "$$ROOT"}}}, 
+                        {"$unwind": {"path": "$docs", "includeArrayIndex": "rank"}}, 
+                        {"$addFields": {"kw_score": {"$divide": [1.0, {"$add": ["$rank", self.keyword_penalty, 1]}]}}},
+                        {"$project": {"kw_score": 1, "_id": "$docs._id", "recordID": "$docs.RecordID"}}
+                    ]
                 }
             },
             {
@@ -169,7 +166,8 @@ class NoSQLDatabase:
                 }
             },
           {"$sort": {"score": -1}},
-          {"$limit": self.k}   
+          {"$limit": self.k}
+
         ])
         
         return hybrid_results
