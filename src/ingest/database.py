@@ -124,11 +124,24 @@ class NoSQLDatabase:
                     "pipeline": [
                         {
                             "$search": {
+
                                 "index": "keyword_search",
-                                "phrase": {
-                                    "query": ngrams,
-                                    "path": "keywords.result"
-                                }
+                                "compound": {
+                                    "filter": [ {
+                                        "queryString": {
+                                            "defaultPath": "ObjectType",
+                                                "query": "Article"
+                                        }
+                                    }
+
+                                    ],
+                                    "must": {
+                                        "phrase": {
+                                            "query": ngrams,
+                                                "path": "keywords.result"
+                                        }
+                                    }
+                                },
                             }
                         },
                         {"$limit": self.k},
